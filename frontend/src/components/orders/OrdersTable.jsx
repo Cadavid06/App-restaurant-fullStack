@@ -133,7 +133,7 @@ export function OrdersTable({ orders, onEdit, onDelete }) {
 
       {/* 💻 VISTA TABLA en pantallas medianas/grandes */}
       <div className="hidden sm:block overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
-        <table className=" border-collapse min-w-[300px]">
+        <table className="w-full border-collapse min-w-[300px]">
           <thead className="bg-gray-100 text-gray-700">
             <tr>
               <th className="px-6 py-3 text-left text-sm font-semibold">ID</th>
