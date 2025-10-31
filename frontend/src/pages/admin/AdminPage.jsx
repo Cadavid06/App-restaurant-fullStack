@@ -80,7 +80,7 @@ function AdminPage() {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6 space-y-4 md:space-y-6">
+    <div className="bg-white rounded-2xl shadow-sm p-4 space-y-4 w-full sm:max-w-4/5 lg:max-w-3/4 mx-auto h-auto ">
       {" "}
       {/* ✅ Padding adaptativo */}
       <h1 className="text-xl md:text-2xl font-bold text-gray-900">

@@ -1,37 +1,33 @@
 /**
- * Configuración y gestión de la conexión a la base de datos PostgreSQL
- * utilizando el módulo 'pg' (Node-Postgres).
+ * Configuración y gestión de la conexión a la base de datos PostgreSQL (Neon)
  */
 import pg from "pg";
-import dotenv from 'dotenv'
+import dotenv from "dotenv";
 
-// Carga las variables de entorno
-dotenv.config()
+dotenv.config();
+
+const { Pool } = pg;
 
 /**
- * Crea un Pool de conexiones a PostgreSQL.
- * Las credenciales se obtienen de las variables de entorno.
+ * Crea un Pool de conexiones a PostgreSQL (Neon)
  */
-const pool = new pg.Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT,
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false, // 🔒 Necesario para Neon
+  },
 });
 
 /**
- * Función para probar la conexión a la base de datos.
- * Ejecuta una consulta simple para verificar que PostgreSQL esté respondiendo.
+ * Función para probar la conexión
  */
 export const connectDB = async () => {
-    try {
-        await pool.query("SELECT 1");
-        console.log("✅ PostgreSQL responde correctamente");
-    } catch (error) {
-        console.error("❌ Error de conexión a la base de datos:", error);
-    }
+  try {
+    await pool.query("SELECT NOW()");
+    console.log("✅ Conectado correctamente a Neon PostgreSQL");
+  } catch (error) {
+    console.error("❌ Error de conexión a Neon:", error.message);
+  }
 };
 
-// Exporta el Pool de conexiones para ser utilizado en los controladores
 export default pool;

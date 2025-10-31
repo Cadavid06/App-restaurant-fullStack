@@ -9,12 +9,10 @@ const DashboardLayout = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
-      {/* ✅ Sidebar con control de visibilidad */}
       <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
-
-      {/* ✅ Contenido principal */}
       <div className="flex-1 md:ml-64">
-        <Header onMenuClick={() => setIsSidebarOpen(true)} />
+        <Header onMenuClick={() => setIsSidebarOpen(!isSidebarOpen)} />{" "}
+        {/* ✅ Alterna el estado */}
         <main className="p-4 mt-16">
           <Outlet />
         </main>

@@ -102,17 +102,20 @@ export const AdminProvider = ({ children }) => {
   const updateCategory = async (id, data) => {
     try {
       const res = await updateCategoriesRequest(id, data);
-      setCategory((prev) => prev.map((c) => (c.id === id ? res.data : c)));
+      setCategory((prev) =>
+        prev.map((c) => (c.category_id === id ? res.data : c))
+      ); // ✅ Cambia c.id a c.category_id
     } catch (error) {
       console.error(error);
       setErrors(error.response?.data || ["Unexpected error"]);
     }
   };
-
   const updateProduct = async (id, data) => {
     try {
       const res = await updateProductsRequest(id, data);
-      setProduct((prev) => prev.map((p) => (p.id === id ? res.data : p)));
+      setProduct((prev) =>
+        prev.map((p) => (p.product_id === id ? res.data : p))
+      ); // ✅ Cambia p.id a p.product_id
     } catch (error) {
       console.error(error);
       setErrors(error.response?.data || ["Unexpected error"]);

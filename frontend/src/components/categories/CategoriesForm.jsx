@@ -41,7 +41,7 @@ export function CategoryFormDialog({ open, onOpenChange, category, onSave }) {
 
   const onSubmit = (data) => {
     const payload = {
-      ...(category && { id: category._id }),
+      ...(category && { id: category.category_id }),
       name: data.name.trim(),
     };
 

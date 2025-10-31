@@ -38,25 +38,14 @@ const Sidebar = ({ isOpen, onClose }) => {
     <>
       {/* ✅ Sidebar fijo (visible en md y arriba) */}
       <aside
-        className={`
-          fixed top-0 left-0 h-screen w-64 bg-white border-r border-gray-200 z-40
-          transform transition-transform duration-300
-          ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-        `}
+        className={`fixed top-16 md:top-0 left-0 h-screen w-64 bg-white border-r border-gray-200 z-40  
+        ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
       >
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-gray-900">Restaurante</h1>
             <p className="text-sm text-gray-500 mt-1">{roleLabel}</p>
           </div>
-
-          {/* ✅ Botón de cerrar (solo visible en móviles) */}
-          <button
-            onClick={onClose}
-            className="md:hidden p-2 rounded-lg hover:bg-gray-100"
-          >
-            <X className="w-5 h-5 text-gray-700" />
-          </button>
         </div>
 
         <nav className="p-4">

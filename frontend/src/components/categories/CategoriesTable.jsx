@@ -26,9 +26,9 @@ export function CategoryTable({ categories, onEdit, onDelete }) {
               </td>
             </tr>
           ) : (
-            categories.map((category, index) => (
+            categories.map((category) => (
               <tr
-                key={category.category_id || index}
+                key={category.category_id}
                 className="border-t hover:bg-gray-50 transition-all"
               >
                 <td className="px-6 py-4 text-gray-800 font-medium">
