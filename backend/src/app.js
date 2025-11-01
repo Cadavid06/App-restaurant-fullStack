@@ -31,7 +31,7 @@ app.use(express.json());
 app.use(cookieParser());
 // TODO: Configurar CORS adecuadamente para la producción
 app.use(cors({
-    origin: 'http://localhost:5173', // Ejemplo de origen permitido
+    origin: process.env.FRONTEND_URL || '*',
     credentials: true,
 }));
 
