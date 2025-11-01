@@ -31,7 +31,7 @@ app.use(express.json());
 app.use(cookieParser());
 // TODO: Configurar CORS adecuadamente para la producción
 app.use(cors({
-    origin: process.env.FRONTEND_URL || '*',
+    origin: process.env.FRONTEND_URL,
     credentials: true,
 }));
 
