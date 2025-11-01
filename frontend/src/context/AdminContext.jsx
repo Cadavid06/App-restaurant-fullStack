@@ -62,17 +62,24 @@ export const AdminProvider = ({ children }) => {
   const getCategories = async () => {
     try {
       const res = await getCategoriesRequest();
-      setCategory(res.data);
+      // ✅ Maneja si res.data es un objeto con data: []
+      const categories = Array.isArray(res.data)
+        ? res.data
+        : res.data?.data || [];
+      setCategory(categories);
     } catch (error) {
       console.error(error);
       setErrors(error.response?.data || ["Unexpected error"]);
     }
   };
-
   const getProducts = async () => {
     try {
       const res = await getProductsRequest();
-      setProduct(res.data);
+      // ✅ Maneja si res.data es un objeto con data: []
+      const products = Array.isArray(res.data)
+        ? res.data
+        : res.data?.data || [];
+      setProduct(products);
     } catch (error) {
       console.error(error);
       setErrors(error.response?.data || ["Unexpected error"]);
