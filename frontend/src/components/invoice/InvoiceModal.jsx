@@ -33,6 +33,16 @@ function InvoiceModal({ isOpen, onClose, invoice }) {
     }
   };
 
+  const formattedDate = new Date(invoice.date_time).toLocaleString("es-CO", {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: true,
+  });
+
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-50">
       <div className="bg-white rounded-2xl shadow-lg w-[600px] p-6 space-y-4 max-h-[90vh] overflow-y-auto">
@@ -46,8 +56,7 @@ function InvoiceModal({ isOpen, onClose, invoice }) {
             <strong>Empleado:</strong> {invoice.employee_id}
           </p>
           <p>
-            <strong>Fecha:</strong>{" "}
-            {new Date(invoice.date_time).toLocaleString("es-CO")}
+            <strong>Fecha:</strong> {formattedDate}
           </p>
         </div>
         {/* Sección de productos */}

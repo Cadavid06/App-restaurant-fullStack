@@ -1,4 +1,5 @@
 import pool from "../db.js";
+import moment from "moment-timezone";
 
 export const createInvoice = async (req, res) => {
   const { payment_method } = req.body;
@@ -55,7 +56,7 @@ export const createInvoice = async (req, res) => {
       0
     );
 
-    const dateInvoice = new Date();
+    const dateInvoice = moment().tz("America/Bogota").toDate();
 
     const newInvoice = await client.query(
       `INSERT INTO invoice (order_id, date_time, total_payment, payment_method, employee_id) 
