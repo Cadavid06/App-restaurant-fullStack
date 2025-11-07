@@ -20,7 +20,7 @@ function UserModal({ open, onClose, user }) {
     if (user) {
       setValue("name", user.name);
       setValue("email", user.email);
-      setValue("role", user.role_id === 1 ? "Admin" : "Empleado");
+      setValue("role", user.role_id === 1 ? "Administrador" : "Empleado");
     } else {
       reset(); // ✅ Limpia todo el formulario para crear
     }
