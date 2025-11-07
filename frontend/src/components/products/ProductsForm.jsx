@@ -114,7 +114,7 @@ export function ProductFormDialog({ open, onOpenChange, product, categories, onS
                 control={control}
                 rules={{
                   required: "La descripción es obligatoria",
-                  minLength: { value: 5, message: "La descripción debe tener al menos 5 caracteres" },
+                  minLength: { value: 3, message: "La descripción debe tener al menos 5 caracteres" },
                 }}
                 render={({ field }) => (
                   <Input id="description" {...field} />
