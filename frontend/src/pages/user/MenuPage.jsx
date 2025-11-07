@@ -31,6 +31,15 @@ function MenuContent() {
     );
   }
 
+  // ✅ Agrupa productos por nombre (variantes)
+  const groupedProducts = product.reduce((acc, prod) => {
+    if (!acc[prod.name]) {
+      acc[prod.name] = [];
+    }
+    acc[prod.name].push(prod);
+    return acc;
+  }, {});
+
   return (
     <div className="space-y-6 p-4 sm:p-6 md:p-8">
       {/* Header del menú */}
@@ -78,15 +87,26 @@ function MenuContent() {
               className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 
                          gap-3 sm:gap-4"
             >
-              {product
-                .filter((p) => p.category_id === cat.category_id)
-                .map((p) => (
-                  <ProductCard
-                    key={p.product_id}
-                    product={p}
-                    onAddToCart={addItem}
-                  />
-                ))}
+              {/* ✅ Filtra y agrupa por categoría, luego renderiza un ProductCard por grupo */}
+              {Object.keys(groupedProducts)
+                .filter((name) => {
+                  const variants = groupedProducts[name];
+                  return variants.some(
+                    (p) => p.category_id === cat.category_id
+                  ); // ✅ Solo si alguna variante pertenece a la categoría
+                })
+                .map((name) => {
+                  const variants = groupedProducts[name];
+                  const mainProduct = variants[0]; // ✅ Usa el primero como principal
+                  return (
+                    <ProductCard
+                      key={name}
+                      product={mainProduct}
+                      variants={variants} // ✅ Pasa variantes
+                      onAddToCart={addItem}
+                    />
+                  );
+                })}
             </div>
           </TabsContent>
         ))}
