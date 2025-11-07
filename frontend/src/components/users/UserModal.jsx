@@ -105,7 +105,7 @@ function UserModal({ open, onClose, user }) {
               {...register("role")}
             >
               <option value="Empleado">Empleado</option>
-              <option value="Admin">Admin</option>
+              <option value="Administrador">Administrador</option>
             </select>
           </div>
 
