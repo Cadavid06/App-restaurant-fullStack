@@ -138,35 +138,20 @@ export function OrderModal({ open, onClose, order, onSave }) {
       return;
     }
 
-    setFormData((prev) => {
-      const existingIndex = prev.products.findIndex(
-        (p) =>
-          p.product_id === (found.product_id || found.id) &&
-          Number(p.price) === Number(found.price)
-      );
-
-      // ✅ Si el producto exacto (mismo id y precio) ya está, incrementa cantidad
-      if (existingIndex !== -1) {
-        const updated = [...prev.products];
-        updated[existingIndex].amount += 1;
-        return { ...prev, products: updated };
-      }
-
-      // ✅ Si no existe uno igual, agrégalo como nuevo
-      return {
-        ...prev,
-        products: [
-          ...prev.products,
-          {
-            product_id: found.product_id || found.id,
-            name: found.name,
-            amount: 1,
-            price: Number(found.price || 0),
-            description: found.description || "", // opcional, por claridad
-          },
-        ],
-      };
-    });
+    // ✅ Siempre agrega como nuevo (para variantes separadas)
+    setFormData((prev) => ({
+      ...prev,
+      products: [
+        ...prev.products,
+        {
+          product_id: found.product_id || found.id,
+          name: found.name,
+          amount: 1,
+          price: Number(found.price || 0),
+          description: found.description || "",
+        },
+      ],
+    }));
 
     setSelectedProduct("");
     setShowAddSection(false);
