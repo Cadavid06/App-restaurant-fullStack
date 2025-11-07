@@ -192,10 +192,7 @@ export const updateOrder = async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    if (
-      typeof data.tableNumber !== "number" ||
-      data.tableNumber <= 0
-    ) {
+    if (typeof data.tableNumber !== "number" || data.tableNumber <= 0) {
       return res.status(400).json({ message: "Invalid field types" });
     }
 
@@ -219,19 +216,20 @@ export const updateOrder = async (req, res) => {
       [id]
     );
 
+    // ✅ Agrupa por product_id (para variantes separadas)
     const mergedProducts = Object.values(
       data.products.reduce((acc, p) => {
-        const name = p.name.trim().toLowerCase();
-        if (!acc[name]) acc[name] = { ...p, amount: p.amount };
-        else acc[name].amount += p.amount;
+        const key = p.product_id; // ✅ Usa product_id como clave
+        if (!acc[key]) acc[key] = { ...p, amount: p.amount };
+        else acc[key].amount += p.amount; // ✅ Suma amounts si hay duplicados
         return acc;
       }, {})
     );
 
     for (const item of mergedProducts) {
       const productClient = await client.query(
-        "SELECT product_id, price FROM product WHERE name = $1",
-        [item.name.trim()]
+        "SELECT product_id, price FROM product WHERE product_id = $1", // ✅ Busca por product_id
+        [item.product_id]
       );
       if (productClient.rows.length === 0) {
         await client.query("ROLLBACK");
@@ -256,14 +254,8 @@ export const updateOrder = async (req, res) => {
       }
     }
 
-    const nameProducts = data.products.map((n) => n.name.trim());
-    const allIds = await client.query(
-      "SELECT product_id FROM product WHERE name = ANY($1)",
-      [nameProducts]
-    );
-
-    const idsProducts = allIds.rows.map((i) => i.product_id);
-
+    // ✅ Elimina productos no incluidos (por product_id)
+    const idsProducts = data.products.map((p) => p.product_id);
     await client.query(
       `DELETE FROM order_detail
        WHERE order_id = $1 AND product_id NOT IN (${idsProducts.join(",")})`,
