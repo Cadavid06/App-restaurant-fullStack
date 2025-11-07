@@ -32,13 +32,6 @@ export const createProduct = async (req, res) => {
 
     const category_id = categoryFound.rows[0].category_id;
 
-    const productFound = await pool.query(
-      "SELECT 1 FROM product WHERE LOWER(name) = $1",
-      [normalizedName]
-    );
-    if (productFound.rows.length > 0)
-      return res.status(409).json({ message: "Product already exists" });
-
     const newProduct = await pool.query(
       `INSERT INTO product (name, description, price, category_id) 
       VALUES ($1, $2, $3, $4) RETURNING *`,
