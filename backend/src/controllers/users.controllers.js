@@ -3,7 +3,9 @@ import bcrypt from "bcryptjs"; // ✅ Para cifrar contraseña
 
 export const getUsers = async (req, res) => {
   try {
-    const users = await pool.query(`SELECT user_id, name, email, role_id FROM users`); // ✅ No devolver password
+    const users = await pool.query(
+      `SELECT user_id, name, email, role_id FROM users`
+    ); // ✅ No devolver password
     if (users.rows.length === 0) {
       return res.status(200).json({ message: "No users found", data: [] });
     }
@@ -17,7 +19,10 @@ export const getUsers = async (req, res) => {
 export const getUser = async (req, res) => {
   const { id } = req.params;
   try {
-    const user = await pool.query(`SELECT user_id, name, email, role_id FROM users WHERE user_id = $1`, [id]);
+    const user = await pool.query(
+      `SELECT user_id, name, email, role_id FROM users WHERE user_id = $1`,
+      [id]
+    );
     if (user.rows.length === 0) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -32,20 +37,34 @@ export const updateUsers = async (req, res) => {
   const { id } = req.params;
   const { name, email, password, role } = req.body;
 
-  const client = await pool.connect(); // ✅ Usa pool.connect para transacción
+  const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // ✅ Validaciones correctas
+    // Validaciones
     if (typeof name !== "string" || typeof email !== "string") {
       await client.query("ROLLBACK");
-      return res.status(400).json({ message: "Invalid field types for name or email" });
+      return res
+        .status(400)
+        .json({ message: "Invalid field types for name or email" });
     }
 
-    // ✅ Verifica rol si se proporciona
+    // Verifica si usuario existe
+    const user = await client.query(`SELECT * FROM users WHERE user_id = $1`, [
+      id,
+    ]);
+    if (user.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Mapea role a role_id si se proporciona
     let roleId = null;
     if (role) {
-      const roleFound = await client.query("SELECT role_id FROM role WHERE name_role = $1", [role]);
+      const roleFound = await client.query(
+        "SELECT role_id FROM role WHERE name_role = $1",
+        [role]
+      );
       if (roleFound.rows.length === 0) {
         await client.query("ROLLBACK");
         return res.status(400).json({ message: "The role does not exist" });
@@ -53,23 +72,26 @@ export const updateUsers = async (req, res) => {
       roleId = roleFound.rows[0].role_id;
     }
 
-    // ✅ Verifica si usuario existe
-    const user = await client.query(`SELECT * FROM users WHERE user_id = $1`, [id]);
-    if (user.rows.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // ✅ Cifra contraseña solo si se proporciona
+    // Cifra contraseña solo si se proporciona
     let passwordHash = user.rows[0].password;
     if (password) {
       passwordHash = await bcrypt.hash(password, 10);
     }
 
-    const result = await client.query(
-      `UPDATE users SET name = $1, email = $2, password = $3${roleId ? ", role_id = $4" : ""} WHERE user_id = $${roleId ? 4 : 3} RETURNING user_id, name, email, role_id`,
-      roleId ? [name.trim(), email.trim(), passwordHash, roleId, id] : [name.trim(), email.trim(), passwordHash, id]
-    );
+    // Construye la query dinámicamente
+    let query = "UPDATE users SET name = $1, email = $2, password = $3";
+    let params = [name.trim(), email.trim(), passwordHash];
+    if (roleId) {
+      query += ", role_id = $4";
+      params.push(roleId);
+    }
+    query +=
+      " WHERE user_id = $" +
+      (params.length + 1) +
+      " RETURNING user_id, name, email, role_id";
+    params.push(id);
+
+    const result = await client.query(query, params);
 
     if (result.rowCount === 0) {
       await client.query("ROLLBACK");
