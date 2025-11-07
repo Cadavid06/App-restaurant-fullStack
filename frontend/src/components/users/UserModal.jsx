@@ -1,17 +1,18 @@
 import { useForm } from "react-hook-form";
 import { useUser } from "../../context/UserContext";
-import { useAuth } from "../../context/AuthContext"; // ✅ Importa useAuth
+import { useAuth } from "../../context/AuthContext";
 import { useEffect } from "react";
 import { Button } from "../ui/button";
 import { X } from "lucide-react";
 
 function UserModal({ open, onClose, user }) {
   const { updateUser, errors: userErrors } = useUser();
-  const { signUp, errors: authErrors } = useAuth(); // ✅ Agrega signUp y errores
+  const { signUp, errors: authErrors } = useAuth();
   const {
     register,
     handleSubmit,
     setValue,
+    reset, // ✅ Agrega reset
     formState: { errors: formErrors },
   } = useForm();
 
@@ -20,8 +21,10 @@ function UserModal({ open, onClose, user }) {
       setValue("name", user.name);
       setValue("email", user.email);
       setValue("role", user.role_id === 1 ? "Admin" : "Empleado");
+    } else {
+      reset(); // ✅ Limpia todo el formulario para crear
     }
-  }, [user, setValue]);
+  }, [user, setValue, reset]); // ✅ Agrega reset a dependencias
 
   const onSubmit = handleSubmit(async (data) => {
     try {
