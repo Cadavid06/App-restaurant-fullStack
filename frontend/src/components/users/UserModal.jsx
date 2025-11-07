@@ -1,11 +1,13 @@
 import { useForm } from "react-hook-form";
 import { useUser } from "../../context/UserContext";
+import { useAuth } from "../../context/AuthContext"; // ✅ Importa useAuth
 import { useEffect } from "react";
 import { Button } from "../ui/button";
 import { X } from "lucide-react";
 
 function UserModal({ open, onClose, user }) {
-  const { updateUser, errors } = useUser();
+  const { updateUser, errors: userErrors } = useUser();
+  const { signUp, errors: authErrors } = useAuth(); // ✅ Agrega signUp y errores
   const {
     register,
     handleSubmit,
@@ -24,7 +26,9 @@ function UserModal({ open, onClose, user }) {
   const onSubmit = handleSubmit(async (data) => {
     try {
       if (user) {
-        await updateUser(user.user_id, data);
+        await updateUser(user.user_id, data); // ✅ Editar
+      } else {
+        await signUp(data); // ✅ Crear con signUp
       }
       onClose();
     } catch (error) {
@@ -36,23 +40,18 @@ function UserModal({ open, onClose, user }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      {" "}
-      {/* ✅ Padding para móviles */}
       <div className="bg-white rounded-2xl p-4 md:p-6 w-full max-w-[400px]">
-        {" "}
-        {/* ✅ Ancho máximo, padding adaptativo */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg md:text-xl font-bold">
             {user ? "Editar Usuario" : "Crear Usuario"}
-          </h2>{" "}
-          {/* ✅ Tamaño adaptativo */}
+          </h2>
           <Button variant="ghost" size="icon" onClick={onClose}>
             <X className="h-5 w-5" />
           </Button>
         </div>
-        {errors.length > 0 && (
+        {(userErrors.length > 0 || authErrors.length > 0) && (
           <div className="space-y-2 mb-4">
-            {errors.map((error, i) => (
+            {[...userErrors, ...authErrors].map((error, i) => (
               <div
                 key={i}
                 className="bg-red-500 text-white text-sm p-2 rounded-md"
@@ -70,7 +69,7 @@ function UserModal({ open, onClose, user }) {
             </label>
             <input
               type="text"
-              className="w-full px-4 py-2 border rounded-md text-sm md:text-base" // ✅ Tamaño adaptativo
+              className="w-full px-4 py-2 border rounded-md text-sm md:text-base"
               {...register("name", { required: "Nombre obligatorio" })}
             />
             {formErrors.name && (
@@ -85,7 +84,7 @@ function UserModal({ open, onClose, user }) {
             </label>
             <input
               type="email"
-              className="w-full px-4 py-2 border rounded-md text-sm md:text-base" // ✅ Tamaño adaptativo
+              className="w-full px-4 py-2 border rounded-md text-sm md:text-base"
               {...register("email", { required: "Email obligatorio" })}
             />
             {formErrors.email && (
@@ -102,23 +101,27 @@ function UserModal({ open, onClose, user }) {
               className="w-full px-4 py-2 border rounded-md text-sm md:text-base"
               {...register("role")}
             >
-              {" "}
-              {/* ✅ Tamaño adaptativo */}
               <option value="Empleado">Empleado</option>
               <option value="Admin">Admin</option>
             </select>
           </div>
 
-          {/* Contraseña */}
+          {/* Contraseña - Obligatoria para crear */}
           <div>
             <label className="block text-sm font-medium text-gray-700">
-              Contraseña (opcional)
+              Contraseña {user ? "(opcional)" : "(obligatoria)"}
             </label>
             <input
               type="password"
-              placeholder="Deja vacío para no cambiar"
-              className="w-full px-4 py-2 border rounded-md text-sm md:text-base" // ✅ Tamaño adaptativo
-              {...register("password")}
+              placeholder={
+                user ? "Deja vacío para no cambiar" : "Ingresa contraseña"
+              }
+              className="w-full px-4 py-2 border rounded-md text-sm md:text-base"
+              {...register("password", {
+                required: user
+                  ? false
+                  : "Contraseña obligatoria para crear usuario",
+              })}
             />
             {formErrors.password && (
               <p className="text-red-500 text-sm">
@@ -128,8 +131,6 @@ function UserModal({ open, onClose, user }) {
           </div>
 
           <div className="flex flex-col md:flex-row justify-end gap-3">
-            {" "}
-            {/* ✅ Stack en móviles */}
             <Button
               type="button"
               variant="outline"
@@ -139,7 +140,7 @@ function UserModal({ open, onClose, user }) {
               Cancelar
             </Button>
             <Button type="submit" className="w-full md:w-auto">
-              Guardar
+              {user ? "Guardar" : "Crear"}
             </Button>
           </div>
         </form>

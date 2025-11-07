@@ -122,6 +122,7 @@ function UsersPage() {
         onClose={() => {
           setOpen(false);
           setSelectedUser(null);
+          getUsers(); // ✅ Refresca la lista
         }}
         user={selectedUser}
       />
