@@ -196,8 +196,11 @@ export function OrderModal({ open, onClose, order, onSave }) {
       const payload = {
         tableNumber: Number(formData.tableNumber),
         products: formData.products.map((p) => ({
-          name: String(p.name),
-          amount: Number(p.amount),
+        product_id: p.product_id,
+        name: String(p.name),
+        description: p.description || "",
+        price: Number(p.price),
+        amount: Number(p.amount),
         })),
       };
 
