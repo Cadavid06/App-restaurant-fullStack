@@ -46,7 +46,7 @@ export const getCategories = async (req, res) => {
     //1. Verifica que haya categorías creadas
     const categories = await pool.query("SELECT * FROM category");
     if (categories.rows.length === 0)
-      return res.status(200).json({ message: "No categories found", data: [] });
+      return res.status(400).json({ message: "No categories found", data: [] });
 
     //2. Responde con el listado de todas las categorías
     return res.json(categories.rows);

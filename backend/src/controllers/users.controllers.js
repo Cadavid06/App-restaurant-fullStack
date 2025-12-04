@@ -4,11 +4,14 @@ import bcrypt from "bcryptjs"; // ✅ Para cifrar contraseña
 export const getUsers = async (req, res) => {
   try {
     const users = await pool.query(
-      `SELECT user_id, name, email, role_id FROM users`
-    ); // ✅ No devolver password
+      `SELECT user_id, name, email, role_id FROM users WHERE name != $1`,
+      ['Developer']
+    ); 
+
     if (users.rows.length === 0) {
       return res.status(200).json({ message: "No users found", data: [] });
     }
+
     res.json(users.rows);
   } catch (error) {
     console.error("Error displaying users:", error);

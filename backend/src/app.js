@@ -7,6 +7,7 @@ import express from "express";
 import authRoutes from "./routes/auth.routes.js";
 import users from "./routes/users.route.js";
 import categories from './routes/categories.routes.js'
+import productSize from './routes/productSize.routes.js'
 import products from "./routes/products.routes.js";
 import orders from "./routes/orders.routes.js";
 import invoice from "./routes/invoices.routes.js";
@@ -42,6 +43,7 @@ app.use(cors({
 app.use("/api", authRoutes);
 app.use("/api", users);
 app.use("/api", categories);
+app.use("/api", productSize);
 app.use("/api", products);
 app.use("/api", orders);
 app.use("/api", invoice);
