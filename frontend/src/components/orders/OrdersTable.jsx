@@ -1,5 +1,11 @@
 import { Button } from "../ui/button";
-import { Edit, SaveIcon, Trash2 } from "lucide-react";
+import {
+  Edit,
+  SaveIcon,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import InvoiceModal from "../invoice/InvoiceModal";
 import { useOrderContext } from "../../context/OrderContext";
 import { useState } from "react";
@@ -8,6 +14,38 @@ export function OrdersTable({ orders, onEdit, onDelete }) {
   const { getInvoice, getOrder } = useOrderContext();
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // --- LÓGICA DE ORDENAMIENTO Y PAGINACIÓN ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
+  // 1. ✅ NUEVO: Ordenar los pedidos por fecha (del más reciente al más antiguo)
+  // Usamos [...orders] para crear una copia y no mutar el array original
+  const sortedOrders = [...orders].sort((a, b) => {
+    const dateA = new Date(a.date_time); // Asegúrate que 'date_time' sea el nombre correcto en tu BD
+    const dateB = new Date(b.date_time);
+    return dateB - dateA; // B - A = Orden Descendente (Nuevos primero)
+  });
+
+  // 2. ✅ MODIFICADO: Usamos 'sortedOrders' en lugar de 'orders' para calcular páginas
+  const totalPages = Math.ceil(sortedOrders.length / ITEMS_PER_PAGE);
+
+  // 3. ✅ MODIFICADO: Cortamos el array YA ORDENADO
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const currentOrders = sortedOrders.slice(
+    startIndex,
+    startIndex + ITEMS_PER_PAGE
+  );
+
+  // Funciones para cambiar de página
+  const goToPreviousPage = () => {
+    if (currentPage > 1) setCurrentPage((prev) => prev - 1);
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage((prev) => prev + 1);
+  };
+  // -----------------------------
 
   const getInvoiceById = async (order_id) => {
     try {
@@ -42,6 +80,41 @@ export function OrdersTable({ orders, onEdit, onDelete }) {
     }
   };
 
+  // Componente reutilizable para los controles de paginación
+  const PaginationControls = () => {
+    if (totalPages <= 1) return null; // No mostrar si hay solo 1 página
+
+    return (
+      <div className="flex justify-center items-center gap-4 mt-6">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={goToPreviousPage}
+          disabled={currentPage === 1}
+          className="flex items-center gap-1"
+        >
+          <ChevronLeft className="h-4 w-4" />
+          Anterior
+        </Button>
+
+        <span className="text-sm font-medium text-gray-600">
+          Página {currentPage} de {totalPages}
+        </span>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={goToNextPage}
+          disabled={currentPage === totalPages}
+          className="flex items-center gap-1"
+        >
+          Siguiente
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <div className="mt-4">
       {/* 📱 VISTA CARD en pantallas pequeñas */}
@@ -51,7 +124,8 @@ export function OrdersTable({ orders, onEdit, onDelete }) {
             No hay pedidos registrados
           </p>
         ) : (
-          orders.map((order, index) => {
+          // Usamos 'currentOrders' en lugar de 'orders'
+          currentOrders.map((order, index) => {
             const derivedStatus = order.has_invoice
               ? "Completado"
               : "Pendiente";
@@ -129,119 +203,132 @@ export function OrdersTable({ orders, onEdit, onDelete }) {
             );
           })
         )}
+
+        {/* Controles de paginación para móvil */}
+        <div className="sm:hidden">
+          <PaginationControls />
+        </div>
       </div>
 
       {/* 💻 VISTA TABLA en pantallas medianas/grandes */}
-      <div className="hidden sm:block overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
-        <table className="w-full border-collapse min-w-[300px]">
-          <thead className="bg-gray-100 text-gray-700">
-            <tr>
-              <th className="px-6 py-3 text-left text-sm font-semibold">ID</th>
-              <th className="px-6 py-3 text-left text-sm font-semibold">
-                Empleado
-              </th>
-              <th className="px-6 py-3 text-left text-sm font-semibold">
-                Fecha
-              </th>
-              <th className="px-6 py-3 text-right text-sm font-semibold">
-                # Mesa
-              </th>
-              <th className="px-6 py-3 text-right text-sm font-semibold">
-                Estado
-              </th>
-              <th className="px-6 py-3 text-right text-sm font-semibold">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.length === 0 ? (
+      <div className="hidden sm:block">
+        <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm">
+          <table className="w-full border-collapse min-w-[300px]">
+            <thead className="bg-gray-100 text-gray-700">
               <tr>
-                <td
-                  colSpan={6}
-                  className="text-center py-6 text-gray-500 text-sm"
-                >
-                  No hay pedidos registrados
-                </td>
+                <th className="px-6 py-3 text-left text-sm font-semibold">
+                  ID
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold">
+                  Empleado
+                </th>
+                <th className="px-6 py-3 text-left text-sm font-semibold">
+                  Fecha
+                </th>
+                <th className="px-6 py-3 text-right text-sm font-semibold">
+                  # Mesa
+                </th>
+                <th className="px-6 py-3 text-right text-sm font-semibold">
+                  Estado
+                </th>
+                <th className="px-6 py-3 text-right text-sm font-semibold">
+                  Acciones
+                </th>
               </tr>
-            ) : (
-              orders.map((order, index) => {
-                const derivedStatus = order.has_invoice
-                  ? "Completado"
-                  : "Pendiente";
-                return (
-                  <tr
-                    key={order.order_id || index}
-                    className="border-t hover:bg-gray-50 transition-colors"
+            </thead>
+            <tbody>
+              {orders.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="text-center py-6 text-gray-500 text-sm"
                   >
-                    <td className="px-6 py-4 text-gray-800 font-medium">
-                      {order.order_id}
-                    </td>
-                    <td className="px-6 py-4 text-gray-700">
-                      {order.employee_id}
-                    </td>
-                    <td className="px-6 py-4 text-gray-700">
-                      {order.date_time
-                        ? new Date(order.date_time).toLocaleString("es-CO")
-                        : "N/A"}
-                    </td>
-                    <td className="px-6 py-4 text-gray-700 text-right">
-                      {order.table_number}
-                    </td>
-                    <td className="px-6 py-4 text-gray-700 text-right">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          derivedStatus === "Completado"
-                            ? "bg-green-100 text-green-700"
-                            : "bg-yellow-100 text-yellow-700"
-                        }`}
-                      >
-                        {derivedStatus}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onEdit(order)}
-                          disabled={order.has_invoice}
-                          title={
-                            order.has_invoice
-                              ? "No se puede editar: ya se generó una factura"
-                              : "Editar pedido"
-                          }
+                    No hay pedidos registrados
+                  </td>
+                </tr>
+              ) : (
+                // Usamos 'currentOrders' aquí también para mantener consistencia
+                currentOrders.map((order, index) => {
+                  const derivedStatus = order.has_invoice
+                    ? "Completado"
+                    : "Pendiente";
+                  return (
+                    <tr
+                      key={order.order_id || index}
+                      className="border-t hover:bg-gray-50 transition-colors"
+                    >
+                      <td className="px-6 py-4 text-gray-800 font-medium">
+                        {order.order_id}
+                      </td>
+                      <td className="px-6 py-4 text-gray-700">
+                        {order.employee_id}
+                      </td>
+                      <td className="px-6 py-4 text-gray-700">
+                        {order.date_time
+                          ? new Date(order.date_time).toLocaleString("es-CO")
+                          : "N/A"}
+                      </td>
+                      <td className="px-6 py-4 text-gray-700 text-right">
+                        {order.table_number}
+                      </td>
+                      <td className="px-6 py-4 text-gray-700 text-right">
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            derivedStatus === "Completado"
+                              ? "bg-green-100 text-green-700"
+                              : "bg-yellow-100 text-yellow-700"
+                          }`}
                         >
-                          <Edit
-                            className={`h-4 w-4 ${
+                          {derivedStatus}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onEdit(order)}
+                            disabled={order.has_invoice}
+                            title={
                               order.has_invoice
-                                ? "text-gray-400"
-                                : "text-gray-700"
-                            }`}
-                          />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onDelete(order.order_id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-red-500" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => getInvoiceById(order.order_id)}
-                        >
-                          <SaveIcon className="h-4 w-4 text-gray-700" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                                ? "No se puede editar: ya se generó una factura"
+                                : "Editar pedido"
+                            }
+                          >
+                            <Edit
+                              className={`h-4 w-4 ${
+                                order.has_invoice
+                                  ? "text-gray-400"
+                                  : "text-gray-700"
+                              }`}
+                            />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onDelete(order.order_id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => getInvoiceById(order.order_id)}
+                          >
+                            <SaveIcon className="h-4 w-4 text-gray-700" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Controles de paginación para escritorio */}
+        <PaginationControls />
       </div>
 
       {/* 🧾 MODAL DE FACTURA */}

@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useEffect } from "react";
 import { Button } from "../ui/button";
 import { X } from "lucide-react";
+import { showSuccess, showError } from "../../utils/sweetAlert";
 
 function UserModal({ open, onClose, user }) {
   const { updateUser, errors: userErrors } = useUser();
@@ -29,13 +30,27 @@ function UserModal({ open, onClose, user }) {
   const onSubmit = handleSubmit(async (data) => {
     try {
       if (user) {
-        await updateUser(user.user_id, data); // ✅ Editar
+        await updateUser(user.user_id, data);
+        showSuccess(
+          "Usuario Actualizado",
+          "Datos del empleado modificados con éxito."
+        );
       } else {
-        await signUp(data); // ✅ Crear con signUp
+        await signUp(data);
+        showSuccess(
+          "Usuario Registrado",
+          "El nuevo empleado ha sido registrado."
+        );
       }
-      onClose();
+      onClose(); // Cerrar modal
     } catch (error) {
       console.error("Error saving user:", error);
+      // Extraer mensaje de error del backend (ej: "El correo ya existe")
+      const msg =
+        error.response?.data?.message || Array.isArray(error.response?.data)
+          ? error.response?.data[0]
+          : "Error al guardar usuario.";
+      showError("Error", msg);
     }
   });
 

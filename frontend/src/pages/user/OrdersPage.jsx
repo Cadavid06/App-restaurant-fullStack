@@ -10,6 +10,11 @@ import {
 } from "../../components/layouts/Tabs";
 import { OrdersTable } from "../../components/orders/OrdersTable";
 import { OrderModal } from "../../components/orders/OrderModal";
+import {
+  showSuccess,
+  showError,
+  showDeleteConfirm,
+} from "../../utils/sweetAlert";
 
 function OrdersPage() {
   const { order, getOrders, updateOrders, deleteOrders } = useOrderContext();
@@ -22,16 +27,31 @@ function OrdersPage() {
   }, []);
 
   const handleSave = async (data) => {
-    console.log("[v0] Saving order:", data);
-    if (data.id) {
-      await updateOrders(data.id, {
-        tableNumber: data.tableNumber,
-        status: data.status,
-        products: data.products,
-      });
+    try {
+      console.log("[v0] Saving order:", data);
+
+      if (data.id) {
+        // Actualizar pedido existente
+        await updateOrders(data.id, {
+          tableNumber: data.tableNumber,
+          status: data.status,
+          products: data.products,
+        });
+        showSuccess(
+          "Pedido Actualizado",
+          "Los cambios en el pedido se guardaron correctamente."
+        );
+      }
+
+      getOrders(); // Refrescar la tabla de pedidos
+      setOpen(false);
+      setSelectedOrder(null);
+    } catch (error) {
+      console.error(error);
+      const msg =
+        error.response?.data?.message || "Error al procesar el pedido.";
+      showError("Error", msg);
     }
-    setOpen(false);
-    setSelectedOrder(null);
   };
 
   const handleEdit = (orderToEdit) => {
@@ -41,8 +61,18 @@ function OrdersPage() {
   };
 
   const handleDelete = async (id) => {
-    if (confirm("¿Seguro que deseas eliminar este pedido?")) {
-      await deleteOrders(id);
+    const confirmed = await showDeleteConfirm("pedido");
+    if (confirmed) {
+      try {
+        await deleteOrders(id);
+        // getOrders(); // Si deleteOrders no actualiza el estado automáticamente, descomenta esto
+        showSuccess(
+          "Pedido Eliminado",
+          "El pedido ha sido borrado del sistema."
+        );
+      } catch (error) {
+        showError("Error", "No se pudo eliminar el pedido.");
+      }
     }
   };
 

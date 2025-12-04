@@ -22,6 +22,10 @@ export function ProductsTable({ products, onEdit, onDelete }) {
                 {/* ✅ Oculta en móviles pequeños */}
                 Categoría
               </th>
+              <th className="text-center px-4 md:px-6 py-3 text-sm font-semibold text-gray-700 hidden sm:table-cell">
+                {/* ✅ Oculta en móviles pequeños */}
+                Tamaño
+              </th>
               <th className="text-center px-4 md:px-6 py-3 text-sm font-semibold text-gray-700">
                 Precio
               </th>
@@ -55,6 +59,9 @@ export function ProductsTable({ products, onEdit, onDelete }) {
                     </td>
                     <td className="px-4 md:px-6 py-4 text-gray-700 hidden sm:table-cell text-sm md:text-base">
                       {product.category_name || "Sin categoría"}
+                    </td>
+                    <td className="px-4 md:px-6 py-4 text-gray-700 hidden sm:table-cell text-sm md:text-base">
+                      {product.size_name || "Sin tamaño"}
                     </td>
                     <td className="px-4 md:px-6 py-4 text-gray-700 text-right text-sm md:text-base">
                       ${product.price}

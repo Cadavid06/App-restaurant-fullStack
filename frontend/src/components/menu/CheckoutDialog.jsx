@@ -9,13 +9,17 @@ import {
 } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { useCart } from "./CartContext";
+import { showSuccess } from "../../utils/sweetAlert";
 
 export function CheckoutDialog({ open, onOpenChange }) {
   const { items, total, clearCart } = useCart();
 
   const handleConfirm = () => {
     console.log("[v0] CheckoutDialog - Confirming order:", { items, total });
-    alert("✅ Pedido confirmado con éxito");
+
+    // Usamos showSuccess
+    showSuccess("¡Pedido Confirmado!", "La orden ha sido enviada a cocina.");
+
     clearCart();
     onOpenChange(false);
   };

@@ -7,6 +7,13 @@ import {
   updateCategoriesRequest,
 } from "../api/categories";
 import {
+  createSizeRequest,
+  deleteSizeRequest,
+  getSizeRequest,
+  getSizesRequest,
+  updateSizeRequest,
+} from "../api/productSize";
+import {
   createProductsRequest,
   deleteProductsRequest,
   getProductRequest,
@@ -26,6 +33,7 @@ export const useAdminContext = () => {
 
 export const AdminProvider = ({ children }) => {
   const [category, setCategory] = useState([]);
+  const [size, setSize] = useState([]);
   const [product, setProduct] = useState([]);
   const [errors, setErrors] = useState();
 
@@ -43,6 +51,16 @@ export const AdminProvider = ({ children }) => {
     try {
       const res = await CreateCategoriesRequest(category);
       setCategory((prev) => [...prev, res.data]);
+    } catch (error) {
+      console.error(error);
+      setErrors(error.response?.data || ["Unexpected error"]);
+    }
+  };
+
+  const createSize = async (size) => {
+    try {
+      const res = await createSizeRequest(size);
+      setSize((prev) => [...prev, res.data]);
     } catch (error) {
       console.error(error);
       setErrors(error.response?.data || ["Unexpected error"]);
@@ -72,6 +90,19 @@ export const AdminProvider = ({ children }) => {
       setErrors(error.response?.data || ["Unexpected error"]);
     }
   };
+
+  const getSizes = async () => {
+    try {
+      const res = await getSizesRequest();
+      // ✅ Maneja si res.data es un objeto con data: []
+      const sizes = Array.isArray(res.data) ? res.data : res.data?.data || [];
+      setSize(sizes);
+    } catch (error) {
+      console.error(error);
+      setErrors(error.response?.data || ["Unexpected error"]);
+    }
+  };
+
   const getProducts = async () => {
     try {
       const res = await getProductsRequest();
@@ -95,7 +126,15 @@ export const AdminProvider = ({ children }) => {
       setErrors(error.response?.data || ["Unexpected error"]);
     }
   };
-
+  const getSize = async (id) => {
+    try {
+      const res = await getSizeRequest(id);
+      return res.data;
+    } catch (error) {
+      console.error(error);
+      setErrors(error.response?.data || ["Unexpected error"]);
+    }
+  };
   const getProduct = async (id) => {
     try {
       const res = await getProductRequest(id);
@@ -112,6 +151,17 @@ export const AdminProvider = ({ children }) => {
       setCategory((prev) =>
         prev.map((c) => (c.category_id === id ? res.data : c))
       ); // ✅ Cambia c.id a c.category_id
+    } catch (error) {
+      console.error(error);
+      setErrors(error.response?.data || ["Unexpected error"]);
+    }
+  };
+  const updateSize = async (id, data) => {
+    try {
+      const res = await updateSizeRequest(id, data);
+      setSize((prev) =>
+        prev.map((s) => (s.size_id === id ? res.data : s))
+      );
     } catch (error) {
       console.error(error);
       setErrors(error.response?.data || ["Unexpected error"]);
@@ -137,6 +187,14 @@ export const AdminProvider = ({ children }) => {
       console.error("Error deleting category:", error);
     }
   };
+  const deleteSize = async (id) => {
+    try {
+      await deleteSizeRequest(id);
+      setSize((prev) => prev.filter((c) => c.id !== id));
+    } catch (error) {
+      console.error("Error deleting category:", error);
+    }
+  };
   const deleteProduct = async (id) => {
     try {
       await deleteProductsRequest(id);
@@ -155,6 +213,12 @@ export const AdminProvider = ({ children }) => {
         getCategory,
         updateCategory,
         deleteCategory,
+        size,
+        createSize,
+        getSizes,
+        getSize,
+        updateSize,
+        deleteSize,
         product,
         createProducts,
         getProducts,

@@ -3,6 +3,11 @@ import { useUser } from "../../context/UserContext";
 import { Button } from "../../components/ui/button";
 import { Edit, Trash2, Plus } from "lucide-react";
 import UserModal from "../../components/users/UserModal";
+import {
+  showSuccess,
+  showError,
+  showDeleteConfirm,
+} from "../../utils/sweetAlert";
 
 function UsersPage() {
   const { users, getUsers, deleteUser, errors } = useUser();
@@ -19,8 +24,20 @@ function UsersPage() {
   };
 
   const handleDelete = async (id) => {
-    if (confirm("¿Eliminar usuario?")) {
-      await deleteUser(id);
+    const confirmed = await showDeleteConfirm("usuario");
+    if (confirmed) {
+      try {
+        await deleteUser(id);
+        // getUsers(); // Refrescar lista si es necesario
+        showSuccess(
+          "Usuario Eliminado",
+          "El usuario ya no tiene acceso al sistema."
+        );
+      } catch (error) {
+        const msg =
+          error.response?.data?.message || "No se pudo eliminar el usuario.";
+        showError("Error", msg);
+      }
     }
   };
 

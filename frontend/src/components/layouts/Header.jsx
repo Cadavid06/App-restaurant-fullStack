@@ -30,14 +30,14 @@ const Header = ({ onMenuClick }) => {
           Bienvenido {user?.name || user?.username}
         </p>
 
-        {/* ✅ Botón Cerrar sesión */}
+        {/* ✅ Botón Cerrar sesión MODIFICADO */}
         <Button
           onClick={handleLogout}
           variant="outline"
-          className="flex items-center gap-2 bg-transparent text-sm"
+          className="flex items-center gap-2 bg-transparent text-sm px-2 md:px-4"
         >
           <LogOut className="w-4 h-4" />
-          Cerrar sesión
+          <span className="hidden md:inline">Cerrar sesión</span>
         </Button>
       </div>
     </header>
