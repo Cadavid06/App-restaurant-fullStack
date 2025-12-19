@@ -1,5 +1,5 @@
 /**
- * Contiene la lógica de negocio para las operaciones de autenticación (registro, login, logout).
+ * Controladores de autenticación con soporte multi-inquilino
  */
 import pool from "../db.js";
 import bcrypt from "bcryptjs";
@@ -7,17 +7,16 @@ import { createdAccessToken } from "../libs/jwt.js";
 
 /**
  * Registra un nuevo usuario en la base de datos.
- * Solo puede ser ejecutado por un usuario con rol de Administrador.
- * Implementa una transacción para asegurar la integridad de los datos.
+ * ✅ MODIFICADO: Ahora requiere restaurant_id (excepto para Developer)
  */
 export const register = async (req, res) => {
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, restaurant_id } = req.body;
+  const { role: adminRole } = req.user || {}; // Usuario que está creando
 
-  // Obtiene un cliente del pool para iniciar una transacción
   const client = await pool.connect();
 
   try {
-    await client.query("BEGIN"); // Inicia la transacción
+    await client.query("BEGIN");
 
     // 1. Validación de campos obligatorios
     if (!name || !email || !password || !role) {
@@ -31,13 +30,39 @@ export const register = async (req, res) => {
       [role]
     );
     if (roleFound.rows.length === 0) {
-      await client.query("ROLLBACK"); // Deshace la transacción
+      await client.query("ROLLBACK");
       return res.status(400).json({ message: "The role does not exist" });
     }
 
     const roleId = roleFound.rows[0].role_id;
 
-    // 3. Verifica si el usuario ya existe (por email)
+    // ✅ 3. Validar restaurant_id según el rol
+    let finalRestaurantId = restaurant_id;
+
+    // Si NO es Developer, el restaurant_id es obligatorio
+    if (roleId !== 1) {
+      if (!restaurant_id) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({
+          message: "restaurant_id is required for non-Developer users",
+        });
+      }
+
+      // Verificar que el restaurante existe
+      const restaurantExists = await client.query(
+        "SELECT restaurant_id FROM restaurants WHERE restaurant_id = $1",
+        [restaurant_id]
+      );
+      if (restaurantExists.rows.length === 0) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ message: "Restaurant does not exist" });
+      }
+    } else {
+      // Developer puede tener restaurant_id NULL
+      finalRestaurantId = restaurant_id || null;
+    }
+
+    // 4. Verifica si el usuario ya existe (por email)
     const userFound = await client.query(
       "SELECT * FROM users WHERE email = $1",
       [email]
@@ -47,60 +72,82 @@ export const register = async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // 4. Cifra la contraseña antes de almacenarla
+    // 5. Cifra la contraseña antes de almacenarla
     const passwordHash = await bcrypt.hash(password, 10);
 
-    // 5. Inserta el nuevo usuario en la base de datos
+    // ✅ 6. Inserta el nuevo usuario con restaurant_id
     const newUser = await client.query(
-      `INSERT INTO users (name, email, password, role_id)
-             VALUES ($1, $2, $3, $4)
-             RETURNING user_id, name, email, role_id`,
-      [name, email, passwordHash, roleId]
+      `INSERT INTO users (name, email, password, role_id, restaurant_id)
+             VALUES ($1, $2, $3, $4, $5)
+             RETURNING user_id, name, email, role_id, restaurant_id`,
+      [name, email, passwordHash, roleId, finalRestaurantId]
     );
 
-    // 6. Crea el token de acceso JWT
+    // 7. Crea el token de acceso JWT
     const token = await createdAccessToken(newUser.rows[0]);
 
-    // 7. Establece el token como una cookie HTTP-only
+    // 8. Establece el token como una cookie HTTP-only
     res.cookie("token", token, {
-      httpOnly: true, // No accesible mediante JavaScript en el navegador
-      secure: process.env.NODE_ENV === "production", // Solo sobre HTTPS en prod
-      sameSite: "none", // Necesario si la API y el cliente están en dominios diferentes
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "none",
     });
 
-    await client.query("COMMIT"); // Confirma la transacción
+    await client.query("COMMIT");
 
-    // 8. Responde con el usuario registrado y el token
+    // 9. Responde con el usuario registrado y el token
     return res.status(201).json({
       message: "User registered successfully",
       user: newUser.rows[0],
       token: token,
     });
   } catch (error) {
-    await client.query("ROLLBACK"); // Deshace la transacción en caso de error
+    await client.query("ROLLBACK");
     console.error("Error during register:", error);
     return res.status(500).json({ message: "Internal server error" });
   } finally {
-    client.release(); // Libera el cliente de vuelta al pool
+    client.release();
   }
 };
 
 /**
  * Procesa el inicio de sesión de un usuario.
+ * ✅ Sin cambios significativos - el login no necesita filtrar por restaurante
  */
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    // 1. Busca el usuario por email
     const result = await pool.query("SELECT * FROM users WHERE email = $1", [
       email,
     ]);
-    if (result.rows.length === 0) {
+    if (result.rows.length === 0)
       return res.status(400).json(["Usuario no encontrado"]);
-    }
 
     const userFound = result.rows[0];
+
+    // --- 🛡️ VALIDACIÓN ROBUSTA ---
+
+    // 1. Si NO es Developer (Role 3), DEBE tener restaurante
+    if (userFound.role_id !== 3 && !userFound.restaurant_id) {
+      return res
+        .status(403)
+        .json(["Acceso denegado: Usuario sin restaurante asignado."]);
+    }
+
+    // 2. Si tiene restaurante, verificar estado
+    if (userFound.restaurant_id) {
+      const restaurantCheck = await pool.query(
+        "SELECT is_active FROM restaurants WHERE restaurant_id = $1",
+        [userFound.restaurant_id]
+      );
+      if (
+        restaurantCheck.rows.length === 0 ||
+        !restaurantCheck.rows[0].is_active
+      ) {
+        return res.status(403).json(["Restaurante inactivo o inexistente."]);
+      }
+    }
 
     // 2. Compara la contraseña proporcionada con la cifrada
     const isMatch = await bcrypt.compare(password, userFound.password);
@@ -126,6 +173,7 @@ export const login = async (req, res) => {
         name: userFound.name,
         email: userFound.email,
         role: userFound.role_id,
+        restaurant_id: userFound.restaurant_id, // ✅ Incluir restaurant_id
       },
       token: token,
     });
@@ -147,28 +195,33 @@ export const logout = (req, res) => {
   return res.json({ message: "Logged out" });
 };
 
+/**
+ * Verifica el token y devuelve los datos del usuario
+ */
 export const verifyToken = async (req, res) => {
   try {
-    // En este punto, authRequired ya pasó,
-    // y req.user tiene { id, role } del usuario autenticado
-    const { id, role } = req.user
+    const { id, role } = req.user;
 
-    const result = await pool.query("SELECT user_id, email, role_id, name FROM users WHERE user_id = $1", [id])
+    const result = await pool.query(
+      "SELECT user_id, email, role_id, name, restaurant_id FROM users WHERE user_id = $1",
+      [id]
+    );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "User not found" })
+      return res.status(404).json({ message: "User not found" });
     }
 
-    const userFound = result.rows[0]
+    const userFound = result.rows[0];
 
     return res.json({
       id: userFound.user_id,
       email: userFound.email,
       role: userFound.role_id,
-      name: userFound.name, // ✅ ESTO ES LO QUE FALTABA
-    })
+      name: userFound.name,
+      restaurant_id: userFound.restaurant_id, // ✅ Incluir restaurant_id
+    });
   } catch (error) {
-    console.error("verifyToken error:", error)
-    return res.status(500).json({ message: "Server error" })
+    console.error("verifyToken error:", error);
+    return res.status(500).json({ message: "Server error" });
   }
-}
+};

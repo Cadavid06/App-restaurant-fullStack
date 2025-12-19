@@ -1,169 +1,177 @@
-import { useForm } from "react-hook-form";
-import { useUser } from "../../context/UserContext";
-import { useAuth } from "../../context/AuthContext";
 import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { useAuth } from "../../context/AuthContext";
+import { useUser } from "../../context/UserContext";
+import { useRestaurant } from "../../context/RestaurantContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui/button";
-import { X } from "lucide-react";
 import { showSuccess, showError } from "../../utils/sweetAlert";
+import { registerRequest } from "../../api/auth";
 
 function UserModal({ open, onClose, user }) {
-  const { updateUser, errors: userErrors } = useUser();
-  const { signUp, errors: authErrors } = useAuth();
+  const { user: currentUser } = useAuth();
+  const { updateUser, getUsers } = useUser();
+  const { restaurants, getRestaurants } = useRestaurant();
+
   const {
     register,
     handleSubmit,
-    setValue,
-    reset, // ✅ Agrega reset
-    formState: { errors: formErrors },
+    reset,
+    formState: { errors },
   } = useForm();
+
+  // ✅ Validar con ROL 3
+  const isDeveloper = currentUser?.role === 3;
+
+  // Cargar restaurantes si es Developer y abre el modal
+  useEffect(() => {
+    if (open && isDeveloper) {
+      getRestaurants();
+    }
+  }, [open, isDeveloper]);
 
   useEffect(() => {
     if (user) {
-      setValue("name", user.name);
-      setValue("email", user.email);
-      setValue("role", user.role_id === 1 ? "Administrador" : "Empleado");
+      // EDICIÓN
+      reset({
+        name: user.name,
+        email: user.email,
+        role: user.role_id === 1 ? "Administrador" : "Empleado",
+        restaurant_id: user.restaurant_id, // Cargar su restaurante actual
+        password: "",
+      });
     } else {
-      reset(); // ✅ Limpia todo el formulario para crear
+      // CREACIÓN
+      reset({
+        name: "",
+        email: "",
+        password: "",
+        // Developer crea Admins por defecto, Admins crean Empleados por defecto
+        role: isDeveloper ? "Administrador" : "Empleado",
+
+        // Developer: Campo vacío (debe seleccionar). Admin: Su propio ID (automático).
+        restaurant_id: isDeveloper ? "" : currentUser.restaurant_id,
+      });
     }
-  }, [user, setValue, reset]); // ✅ Agrega reset a dependencias
+  }, [user, reset, isDeveloper, currentUser]);
 
   const onSubmit = handleSubmit(async (data) => {
     try {
+      const userData = {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        role: data.role,
+        // Si es developer usa el select, si no, usa el ID del admin logueado
+        restaurant_id: isDeveloper
+          ? Number(data.restaurant_id)
+          : currentUser.restaurant_id,
+      };
+
+      if (!userData.password) delete userData.password;
+
       if (user) {
-        await updateUser(user.user_id, data);
-        showSuccess(
-          "Usuario Actualizado",
-          "Datos del empleado modificados con éxito."
-        );
+        await updateUser(user.user_id, userData);
+        showSuccess("Usuario Actualizado");
       } else {
-        await signUp(data);
-        showSuccess(
-          "Usuario Registrado",
-          "El nuevo empleado ha sido registrado."
-        );
+        await registerRequest(userData);
+        showSuccess("Usuario Creado");
       }
-      onClose(); // Cerrar modal
+
+      getUsers();
+      onClose();
     } catch (error) {
-      console.error("Error saving user:", error);
-      // Extraer mensaje de error del backend (ej: "El correo ya existe")
-      const msg =
-        error.response?.data?.message || Array.isArray(error.response?.data)
-          ? error.response?.data[0]
-          : "Error al guardar usuario.";
+      const msg = error.response?.data?.message || "Error al guardar usuario";
       showError("Error", msg);
     }
   });
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl p-4 md:p-6 w-full max-w-[400px]">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg md:text-xl font-bold">
-            {user ? "Editar Usuario" : "Crear Usuario"}
-          </h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
-        </div>
-        {(userErrors.length > 0 || authErrors.length > 0) && (
-          <div className="space-y-2 mb-4">
-            {[...userErrors, ...authErrors].map((error, i) => (
-              <div
-                key={i}
-                className="bg-red-500 text-white text-sm p-2 rounded-md"
-              >
-                {error}
-              </div>
-            ))}
-          </div>
-        )}
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>{user ? "Editar Usuario" : "Nuevo Usuario"}</DialogTitle>
+        </DialogHeader>
+
         <form onSubmit={onSubmit} className="space-y-4">
-          {/* Nombre */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Nombre
-            </label>
+            <label className="block text-sm font-medium mb-1">Nombre</label>
             <input
               type="text"
-              className="w-full px-4 py-2 border rounded-md text-sm md:text-base"
-              {...register("name", { required: "Nombre obligatorio" })}
+              className="w-full border p-2 rounded"
+              {...register("name", { required: true })}
             />
-            {formErrors.name && (
-              <p className="text-red-500 text-sm">{formErrors.name.message}</p>
+            {errors.name && (
+              <span className="text-red-500 text-sm">Requerido</span>
             )}
           </div>
 
-          {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Email
-            </label>
+            <label className="block text-sm font-medium mb-1">Email</label>
             <input
               type="email"
-              className="w-full px-4 py-2 border rounded-md text-sm md:text-base"
-              {...register("email", { required: "Email obligatorio" })}
+              className="w-full border p-2 rounded"
+              {...register("email", { required: true })}
             />
-            {formErrors.email && (
-              <p className="text-red-500 text-sm">{formErrors.email.message}</p>
-            )}
           </div>
 
-          {/* Rol */}
           <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Rol
-            </label>
-            <select
-              className="w-full px-4 py-2 border rounded-md text-sm md:text-base"
-              {...register("role")}
-            >
-              <option value="Empleado">Empleado</option>
-              <option value="Administrador">Administrador</option>
-            </select>
-          </div>
-
-          {/* Contraseña - Obligatoria para crear */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Contraseña {user ? "(opcional)" : "(obligatoria)"}
-            </label>
+            <label className="block text-sm font-medium mb-1">Contraseña</label>
             <input
               type="password"
-              placeholder={
-                user ? "Deja vacío para no cambiar" : "Ingresa contraseña"
-              }
-              className="w-full px-4 py-2 border rounded-md text-sm md:text-base"
-              {...register("password", {
-                required: user
-                  ? false
-                  : "Contraseña obligatoria para crear usuario",
-              })}
+              placeholder={user ? "Sin cambios" : ""}
+              className="w-full border p-2 rounded"
+              {...register("password", { required: !user })}
             />
-            {formErrors.password && (
-              <p className="text-red-500 text-sm">
-                {formErrors.password.message}
-              </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Rol</label>
+              <select
+                className="w-full border p-2 rounded"
+                {...register("role")}
+              >
+                <option value="Empleado">Empleado</option>
+                <option value="Administrador">Administrador</option>
+              </select>
+            </div>
+
+            {/* ✅ SELECTOR DE RESTAURANTE (Solo para Developer) */}
+            {isDeveloper && (
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Restaurante
+                </label>
+                <select
+                  className="w-full border p-2 rounded"
+                  {...register("restaurant_id", {
+                    required: "Selecciona un restaurante",
+                  })}
+                >
+                  <option value="">-- Seleccionar --</option>
+                  {restaurants.map((rest) => (
+                    <option key={rest.restaurant_id} value={rest.restaurant_id}>
+                      {rest.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.restaurant_id && (
+                  <span className="text-red-500 text-xs">Requerido</span>
+                )}
+              </div>
             )}
           </div>
 
-          <div className="flex flex-col md:flex-row justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              className="w-full md:w-auto"
-            >
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={onClose} type="button">
               Cancelar
             </Button>
-            <Button type="submit" className="w-full md:w-auto">
-              {user ? "Guardar" : "Crear"}
-            </Button>
+            <Button type="submit">Guardar</Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

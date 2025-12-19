@@ -5,13 +5,13 @@ import { authorizeRoles } from "../middlewares/authorizeRoles.js";
 
 const router = Router();
 
-router.post("/order", authRequired, authorizeRoles(1, 2), createOrder);
+router.post("/order", authRequired, authorizeRoles(1, 2, 3), createOrder);
 
-router.get("/order", authRequired, authorizeRoles(1, 2), getOrders);
-router.get("/order/:id", authRequired, authorizeRoles(1, 2), getOrder);
+router.get("/order", authRequired, authorizeRoles(1, 2, 3), getOrders);
+router.get("/order/:id", authRequired, authorizeRoles(1, 2, 3), getOrder);
 
-router.put("/order/:id", authRequired, authorizeRoles(1, 2), updateOrder);
-router.delete("/order/:id", authRequired, authorizeRoles(1, 2), deleteOrder);
+router.put("/order/:id", authRequired, authorizeRoles(1, 2, 3), updateOrder);
+router.delete("/order/:id", authRequired, authorizeRoles(1, 2, 3), deleteOrder);
 
 
 export default router;

@@ -6,18 +6,19 @@
 import express from "express";
 import authRoutes from "./routes/auth.routes.js";
 import users from "./routes/users.route.js";
-import categories from './routes/categories.routes.js'
-import productSize from './routes/productSize.routes.js'
+import categories from "./routes/categories.routes.js";
+import productSize from "./routes/productSize.routes.js";
 import products from "./routes/products.routes.js";
 import orders from "./routes/orders.routes.js";
 import invoice from "./routes/invoices.routes.js";
 import reports from "./routes/reports.routes.js";
-import cookieParser from 'cookie-parser'
-import cors from 'cors'
-import dotenv from 'dotenv'
+import restaurants from "./routes/restaurants.routes.js";
+import cookieParser from "cookie-parser";
+import cors from "cors";
+import dotenv from "dotenv";
 
 // Carga las variables de entorno desde el archivo .env
-dotenv.config()
+dotenv.config();
 
 // Inicialización de la aplicación Express
 const app = express();
@@ -31,10 +32,15 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 // TODO: Configurar CORS adecuadamente para la producción
-app.use(cors({
-    origin: process.env.FRONTEND_URL,
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL, // http://localhost:5173
     credentials: true,
-}));
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-tenant-id", "Accept"],
+    exposedHeaders: ["x-tenant-id"],
+  })
+);
 
 /**
  * Montaje de rutas de la API.
@@ -48,6 +54,7 @@ app.use("/api", products);
 app.use("/api", orders);
 app.use("/api", invoice);
 app.use("/api", reports);
+app.use("/api", restaurants);
 
 // Exporta la aplicación configurada
 export default app;

@@ -5,6 +5,6 @@ import { authorizeRoles } from "../middlewares/authorizeRoles.js";
 
 const router = Router();
 
-router.get("/reports", authRequired, authorizeRoles(1), getReports);
+router.get("/reports", authRequired, authorizeRoles(1, 3), getReports);
 
 export default router;

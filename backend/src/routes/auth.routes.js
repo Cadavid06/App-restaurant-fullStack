@@ -16,7 +16,7 @@ router.post("/login", login);
 // Requiere:
 // 1. authRequired: Que el usuario esté autenticado (por ejemplo, para que solo un admin pueda registrar).
 // 2. authorizeRoles(1): Que el usuario autenticado tenga el rol ID 1 (Admin) para realizar esta acción.
-router.post("/register", authRequired, authorizeRoles(1), register);
+router.post("/register", authRequired, authorizeRoles(1, 3), register);
 
 // POST /api/logout: Ruta para cerrar la sesión (limpia la cookie del token)
 router.post("/logout", logout);

@@ -1,12 +1,36 @@
-import pool from "../db.js"; // ✅ Importa pool
-import bcrypt from "bcryptjs"; // ✅ Para cifrar contraseña
+import pool from "../db.js";
+import bcrypt from "bcryptjs";
 
+/**
+ * ✅ Obtener usuarios del mismo restaurante
+ * (excepto Developer que puede ver todos)
+ */
 export const getUsers = async (req, res) => {
+  const { restaurant_id, role } = req.user;
+
   try {
-    const users = await pool.query(
-      `SELECT user_id, name, email, role_id FROM users WHERE name != $1`,
-      ['Developer']
-    ); 
+    let users;
+
+    // Si es Developer (role 1), puede ver todos los usuarios
+    if (role === 3 && !restaurant_id) {
+      users = await pool.query(
+        `SELECT user_id, name, email, role_id, restaurant_id 
+         FROM users 
+         WHERE name != $1 
+         ORDER BY user_id ASC`,
+        ["Developer"]
+      );
+    } else {
+      // Admin o Empleado: solo ven usuarios de su restaurante
+      users = await pool.query(
+        `SELECT user_id, name, email, role_id, restaurant_id 
+         FROM users 
+         WHERE name != $1 
+           AND (restaurant_id = $2 OR restaurant_id IS NULL)
+         ORDER BY user_id ASC`,
+        ["Developer", restaurant_id]
+      );
+    }
 
     if (users.rows.length === 0) {
       return res.status(200).json({ message: "No users found", data: [] });
@@ -19,13 +43,35 @@ export const getUsers = async (req, res) => {
   }
 };
 
+/**
+ * ✅ Obtener un usuario específico
+ * Solo si pertenece al mismo restaurante (o si es Developer)
+ */
 export const getUser = async (req, res) => {
   const { id } = req.params;
+  const { restaurant_id, role } = req.user;
+
   try {
-    const user = await pool.query(
-      `SELECT user_id, name, email, role_id FROM users WHERE user_id = $1`,
-      [id]
-    );
+    let user;
+
+    if (role === 3 && !restaurant_id) {
+      // Developer puede ver cualquier usuario
+      user = await pool.query(
+        `SELECT user_id, name, email, role_id, restaurant_id 
+         FROM users WHERE user_id = $1`,
+        [id]
+      );
+    } else {
+      // Admin/Empleado solo puede ver usuarios de su restaurante
+      user = await pool.query(
+        `SELECT user_id, name, email, role_id, restaurant_id 
+         FROM users 
+         WHERE user_id = $1 
+           AND (restaurant_id = $2 OR restaurant_id IS NULL)`,
+        [id, restaurant_id]
+      );
+    }
+
     if (user.rows.length === 0) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -36,33 +82,54 @@ export const getUser = async (req, res) => {
   }
 };
 
+/**
+ * ✅ Actualizar usuario
+ * Solo si pertenece al mismo restaurante (o si es Developer)
+ */
 export const updateUsers = async (req, res) => {
   const { id } = req.params;
-  const { name, email, password, role } = req.body;
+  const { name, email, password, role, restaurant_id } = req.body; // Datos a actualizar
+  const { restaurant_id: adminrestaurant_id, role: adminRole } = req.user; // Datos del que ejecuta
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
 
-    // Validaciones
+    // Validaciones básicas
     if (typeof name !== "string" || typeof email !== "string") {
       await client.query("ROLLBACK");
-      return res
-        .status(400)
-        .json({ message: "Invalid field types for name or email" });
+      return res.status(400).json({ message: "Invalid field types" });
     }
 
-    // Verifica si usuario existe
-    const user = await client.query(`SELECT * FROM users WHERE user_id = $1`, [
-      id,
-    ]);
-    if (user.rows.length === 0) {
+    // ✅ Verificar permisos de búsqueda
+    let userQuery;
+
+    // CORRECCIÓN 1: Usar 'adminrestaurant_id' para saber si el dev está en modo global
+    if (adminRole === 3 && !adminrestaurant_id) {
+      // Developer Global: Busca en toda la tabla
+      userQuery = await client.query(`SELECT * FROM users WHERE user_id = $1`, [
+        id,
+      ]);
+    } else {
+      // Admin/Empleado/Dev Local: Busca solo en su restaurante
+      userQuery = await client.query(
+        `SELECT * FROM users WHERE user_id = $1 
+         AND (restaurant_id = $2 OR restaurant_id IS NULL)`,
+        [id, adminrestaurant_id]
+      );
+    }
+
+    if (userQuery.rows.length === 0) {
       await client.query("ROLLBACK");
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ message: "User not found or unauthorized" });
     }
 
-    // Mapea role a role_id si se proporciona
-    let roleId = null;
+    const user = userQuery.rows[0];
+
+    // Mapea role a role_id
+    let roleId = user.role_id;
     if (role) {
       const roleFound = await client.query(
         "SELECT role_id FROM role WHERE name_role = $1",
@@ -75,26 +142,48 @@ export const updateUsers = async (req, res) => {
       roleId = roleFound.rows[0].role_id;
     }
 
-    // Cifra contraseña solo si se proporciona
-    let passwordHash = user.rows[0].password;
+    // ✅ Validar cambio de restaurant_id
+    let finalrestaurant_id = user.restaurant_id;
+
+    if (restaurant_id !== undefined) {
+      // CORRECCIÓN 2: Verificar si es ROL 3 (Developer)
+      if (adminRole !== 3) {
+        await client.query("ROLLBACK");
+        return res.status(403).json({
+          message: "Only Developer can change restaurant assignment",
+        });
+      }
+
+      if (restaurant_id !== null && restaurant_id !== "") {
+        const restaurantExists = await client.query(
+          "SELECT restaurant_id FROM restaurants WHERE restaurant_id = $1",
+          [restaurant_id]
+        );
+        if (restaurantExists.rows.length === 0) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ message: "Restaurant does not exist" });
+        }
+        finalrestaurant_id = restaurant_id;
+      } else {
+        // Permitir asignar null si se envía null (para convertir en dev o global user)
+        finalrestaurant_id = null;
+      }
+    }
+
+    // Password
+    let passwordHash = user.password;
     if (password) {
       passwordHash = await bcrypt.hash(password, 10);
     }
 
-    // Construye la query dinámicamente
-    let query = "UPDATE users SET name = $1, email = $2, password = $3";
-    let params = [name.trim(), email.trim(), passwordHash];
-    if (roleId) {
-      query += ", role_id = $4";
-      params.push(roleId);
-    }
-    query +=
-      " WHERE user_id = $" +
-      (params.length + 1) +
-      " RETURNING user_id, name, email, role_id";
-    params.push(id);
-
-    const result = await client.query(query, params);
+    // Update
+    const result = await client.query(
+      `UPDATE users 
+       SET name = $1, email = $2, password = $3, role_id = $4, restaurant_id = $5
+       WHERE user_id = $6 
+       RETURNING user_id, name, email, role_id, restaurant_id`,
+      [name.trim(), email.trim(), passwordHash, roleId, finalrestaurant_id, id]
+    );
 
     if (result.rowCount === 0) {
       await client.query("ROLLBACK");
@@ -115,16 +204,38 @@ export const updateUsers = async (req, res) => {
   }
 };
 
+/**
+ * ✅ Eliminar usuario
+ * Solo si pertenece al mismo restaurante (o si es Developer)
+ */
 export const deleteUsers = async (req, res) => {
   const { id } = req.params;
+  const { restaurant_id, role } = req.user;
 
   try {
-    const result = await pool.query(
-      "DELETE FROM users WHERE user_id = $1 RETURNING user_id, name, email",
-      [id]
-    );
+    let result;
+
+    if (role === 3 && !restaurant_id) {
+      // Developer puede eliminar cualquier usuario
+      result = await pool.query(
+        "DELETE FROM users WHERE user_id = $1 RETURNING user_id, name, email",
+        [id]
+      );
+    } else {
+      // Admin/Empleado solo puede eliminar usuarios de su restaurante
+      result = await pool.query(
+        `DELETE FROM users 
+         WHERE user_id = $1 
+           AND (restaurant_id = $2 OR restaurant_id IS NULL)
+         RETURNING user_id, name, email`,
+        [id, restaurant_id]
+      );
+    }
+
     if (result.rowCount === 0) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ message: "User not found or unauthorized" });
     }
 
     return res.json({

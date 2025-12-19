@@ -2,7 +2,7 @@ import pool from "../db.js";
 
 export const createOrder = async (req, res) => {
   const { tableNumber, products } = req.body;
-  const { id: idEmployee, role } = req.user || {};
+  const { id: idEmployee, role, restaurant_id } = req.user || {};
 
   const client = await pool.connect();
 
@@ -26,14 +26,17 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
+    // ✅ Validar que todos los productos pertenezcan al restaurante
     for (const item of products) {
       const productFound = await client.query(
-        "SELECT * FROM product WHERE name = $1",
-        [item.name]
+        "SELECT * FROM product WHERE name = $1 AND (restaurant_id = $2 OR restaurant_id IS NULL)",
+        [item.name, restaurant_id]
       );
       if (productFound.rows.length === 0) {
         await client.query("ROLLBACK");
-        return res.status(404).json({ message: "Product not found" });
+        return res.status(404).json({
+          message: `Product '${item.name}' not found in your restaurant`,
+        });
       }
 
       const productId = productFound.rows[0].product_id;
@@ -51,20 +54,22 @@ export const createOrder = async (req, res) => {
       }
     }
 
+    // ✅ Crear orden con restaurant_id
     const newOrder = await client.query(
-      `INSERT INTO "order" (employee_id, date_time, table_number, status) 
-      VALUES ($1, NOW(), $2, $3) RETURNING *`,
-      [idEmployee, tableNumber, "Pendiente"]
+      `INSERT INTO "order" (employee_id, date_time, table_number, status, restaurant_id) 
+      VALUES ($1, NOW(), $2, $3, $4) RETURNING *`,
+      [idEmployee, tableNumber, "Pendiente", restaurant_id]
     );
 
     const idOrder = newOrder.rows[0].order_id;
 
+    // ✅ Insertar detalles de la orden
     for (const item of products) {
       const { name, amount } = item;
 
       const productFound = await client.query(
-        "SELECT * FROM product WHERE name = $1",
-        [name]
+        "SELECT * FROM product WHERE name = $1 AND (restaurant_id = $2 OR restaurant_id IS NULL)",
+        [name, restaurant_id]
       );
       if (productFound.rows.length === 0) {
         await client.query("ROLLBACK");
@@ -72,7 +77,6 @@ export const createOrder = async (req, res) => {
       }
 
       const productId = productFound.rows[0].product_id;
-
       const price = productFound.rows[0].price;
 
       await client.query(
@@ -84,6 +88,7 @@ export const createOrder = async (req, res) => {
 
     await client.query("COMMIT");
 
+    // Obtener orden completa
     const full = await pool.query(
       `SELECT o.order_id, o.employee_id, o.table_number, o.date_time, o.status,
               od.detail_id, od.product_id, od.amount, od.unit_price
@@ -117,15 +122,22 @@ export const createOrder = async (req, res) => {
 };
 
 export const getOrders = async (req, res) => {
+  const { restaurant_id } = req.user; // ✅ Obtenido del middleware
+
   try {
-    // Query con JOIN para incluir indicador de factura
-    const ordersFound = await pool.query(`
+    // ✅ Filtrar órdenes SOLO del restaurante actual
+    const ordersFound = await pool.query(
+      `
       SELECT 
         o.*,
         CASE WHEN i.invoice_id IS NOT NULL THEN true ELSE false END AS has_invoice
       FROM "order" o
       LEFT JOIN invoice i ON o.order_id = i.order_id
-    `);
+      WHERE o.restaurant_id = $1 OR o.restaurant_id IS NULL
+      ORDER BY o.date_time DESC
+    `,
+      [restaurant_id]
+    );
 
     if (ordersFound.rows.length === 0) {
       return res.status(200).json({ message: "No orders found", data: [] });
@@ -140,18 +152,20 @@ export const getOrders = async (req, res) => {
 
 export const getOrder = async (req, res) => {
   const { id } = req.params;
+  const { restaurant_id } = req.user; // ✅ Obtenido del middleware
+
   try {
-    // Obtener la orden básica
+    // ✅ Verificar que la orden pertenezca al restaurante
     const orderFound = await pool.query(
-      'SELECT * FROM "order" WHERE order_id = $1',
-      [id]
+      'SELECT * FROM "order" WHERE order_id = $1 AND (restaurant_id = $2 OR restaurant_id IS NULL)',
+      [id, restaurant_id]
     );
 
     if (orderFound.rows.length === 0) {
       return res.status(404).json({ message: "Order not found" });
     }
 
-    // Obtener los productos del pedido con JOIN
+    // Obtener productos del pedido
     const productsFound = await pool.query(
       `SELECT 
         od.detail_id,
@@ -166,7 +180,6 @@ export const getOrder = async (req, res) => {
       [id]
     );
 
-    // Construir respuesta completa
     const orderWithProducts = {
       ...orderFound.rows[0],
       products: productsFound.rows.map((p) => ({
@@ -188,23 +201,41 @@ export const getOrder = async (req, res) => {
 export const updateOrder = async (req, res) => {
   const { id } = req.params;
   const data = req.body;
+  const { restaurant_id } = req.user; // ✅ Obtenido del middleware
 
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+
+    // ✅ Verificar que la orden pertenezca al restaurante
+    const orderCheck = await client.query(
+      'SELECT * FROM "order" WHERE order_id = $1 AND (restaurant_id = $2 OR restaurant_id IS NULL)',
+      [id, restaurant_id]
+    );
+    if (orderCheck.rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res
+        .status(404)
+        .json({ message: "Order not found or unauthorized" });
+    }
+
     if (typeof data.tableNumber !== "number" || data.tableNumber <= 0) {
+      await client.query("ROLLBACK");
       return res.status(400).json({ message: "Invalid field types" });
     }
 
     for (const item of data.products) {
-      if (typeof item.name !== "string" || item.amount <= 0)
+      if (typeof item.name !== "string" || item.amount <= 0) {
+        await client.query("ROLLBACK");
         return res.status(400).json({ message: "Invalid field types" });
+      }
     }
 
+    // Actualizar orden
     const result = await client.query(
       `UPDATE "order" SET table_number = $1 
-      WHERE order_id = $2 RETURNING *`,
-      [data.tableNumber, id]
+      WHERE order_id = $2 AND (restaurant_id = $3 OR restaurant_id IS NULL) RETURNING *`,
+      [data.tableNumber, id, restaurant_id]
     );
     if (result.rowCount === 0) {
       await client.query("ROLLBACK");
@@ -216,24 +247,26 @@ export const updateOrder = async (req, res) => {
       [id]
     );
 
-    // ✅ Agrupa por product_id (para variantes separadas)
     const mergedProducts = Object.values(
       data.products.reduce((acc, p) => {
-        const key = p.product_id; // ✅ Usa product_id como clave
+        const key = p.product_id;
         if (!acc[key]) acc[key] = { ...p, amount: p.amount };
-        else acc[key].amount += p.amount; // ✅ Suma amounts si hay duplicados
+        else acc[key].amount += p.amount;
         return acc;
       }, {})
     );
 
     for (const item of mergedProducts) {
+      // ✅ Verificar que el producto pertenezca al restaurante
       const productClient = await client.query(
-        "SELECT product_id, price FROM product WHERE product_id = $1", // ✅ Busca por product_id
-        [item.product_id]
+        "SELECT product_id, price FROM product WHERE product_id = $1 AND (restaurant_id = $2 OR restaurant_id IS NULL)",
+        [item.product_id, restaurant_id]
       );
       if (productClient.rows.length === 0) {
         await client.query("ROLLBACK");
-        return res.status(400).json({ message: "Product not found" });
+        return res
+          .status(400)
+          .json({ message: "Product not found in your restaurant" });
       }
 
       const { product_id, price } = productClient.rows[0];
@@ -254,13 +287,14 @@ export const updateOrder = async (req, res) => {
       }
     }
 
-    // ✅ Elimina productos no incluidos (por product_id)
     const idsProducts = data.products.map((p) => p.product_id);
-    await client.query(
-      `DELETE FROM order_detail
-       WHERE order_id = $1 AND product_id NOT IN (${idsProducts.join(",")})`,
-      [id]
-    );
+    if (idsProducts.length > 0) {
+      await client.query(
+        `DELETE FROM order_detail
+         WHERE order_id = $1 AND product_id NOT IN (${idsProducts.join(",")})`,
+        [id]
+      );
+    }
 
     await client.query("COMMIT");
     return res.status(200).json({ message: "Order updated successfully" });
@@ -275,17 +309,27 @@ export const updateOrder = async (req, res) => {
 
 export const deleteOrder = async (req, res) => {
   const { id } = req.params;
+  const { restaurant_id } = req.user; // ✅ Obtenido del middleware
   const client = await pool.connect();
 
   try {
-    // ✅ Verificar si el pedido tiene una factura
+    // ✅ Verificar que la orden pertenezca al restaurante
+    const orderCheck = await client.query(
+      'SELECT * FROM "order" WHERE order_id = $1 AND (restaurant_id = $2 OR restaurant_id IS NULL)',
+      [id, restaurant_id]
+    );
+    if (orderCheck.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "Order not found or unauthorized" });
+    }
+
     const invoiceCheck = await client.query(
       "SELECT * FROM invoice WHERE order_id = $1",
       [id]
     );
 
     if (invoiceCheck.rows.length > 0) {
-      // Si existe una factura, mostramos un aviso, pero permitimos continuar
       console.log(
         `⚠️ Pedido ${id} tiene una factura asociada. La factura se conservará.`
       );
@@ -293,13 +337,11 @@ export const deleteOrder = async (req, res) => {
 
     await client.query("BEGIN");
 
-    // Primero elimina los detalles del pedido
     await client.query("DELETE FROM order_detail WHERE order_id = $1", [id]);
 
-    // Luego elimina el pedido
     const result = await client.query(
-      'DELETE FROM "order" WHERE order_id = $1 RETURNING *',
-      [id]
+      'DELETE FROM "order" WHERE order_id = $1 AND (restaurant_id = $2 OR restaurant_id IS NULL) RETURNING *',
+      [id, restaurant_id]
     );
 
     if (result.rowCount === 0) {
@@ -309,7 +351,6 @@ export const deleteOrder = async (req, res) => {
 
     await client.query("COMMIT");
 
-    // ✅ Si el pedido tenía factura, informamos
     if (invoiceCheck.rows.length > 0) {
       return res.status(200).json({
         message: "El pedido fue eliminado, pero la factura se conserva.",
@@ -318,7 +359,6 @@ export const deleteOrder = async (req, res) => {
       });
     }
 
-    // ✅ Caso normal sin factura
     return res.status(200).json({
       message: "Pedido eliminado correctamente",
       deletedOrder: result.rows[0],

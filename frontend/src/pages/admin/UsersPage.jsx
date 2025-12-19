@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { useUser } from "../../context/UserContext";
+import { useAuth } from "../../context/AuthContext";
+import { useRestaurant } from "../../context/RestaurantContext";
 import { Button } from "../../components/ui/button";
-import { Edit, Trash2, Plus } from "lucide-react";
+import { Edit, Trash2, Building2, Mail, User } from "lucide-react"; // Añadí iconos para móvil
 import UserModal from "../../components/users/UserModal";
 import {
   showSuccess,
@@ -10,13 +12,27 @@ import {
 } from "../../utils/sweetAlert";
 
 function UsersPage() {
+  const { user: currentUser } = useAuth();
   const { users, getUsers, deleteUser, errors } = useUser();
+  const { restaurants, getRestaurants } = useRestaurant();
+
   const [open, setOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
+  const isDeveloper = currentUser?.role === 3;
+
   useEffect(() => {
     getUsers();
-  }, []);
+    if (isDeveloper) {
+      getRestaurants();
+    }
+  }, [isDeveloper]);
+
+  const getRestaurantName = (id) => {
+    if (!id) return "N/A";
+    const rest = restaurants.find((r) => r.restaurant_id === id);
+    return rest ? rest.name : `ID: ${id}`;
+  };
 
   const handleEdit = (user) => {
     setSelectedUser(user);
@@ -24,122 +40,164 @@ function UsersPage() {
   };
 
   const handleDelete = async (id) => {
-    const confirmed = await showDeleteConfirm("usuario");
-    if (confirmed) {
+    if (await showDeleteConfirm("usuario")) {
       try {
         await deleteUser(id);
-        // getUsers(); // Refrescar lista si es necesario
-        showSuccess(
-          "Usuario Eliminado",
-          "El usuario ya no tiene acceso al sistema."
-        );
+        showSuccess("Usuario Eliminado");
       } catch (error) {
-        const msg =
-          error.response?.data?.message || "No se pudo eliminar el usuario.";
-        showError("Error", msg);
+        showError("Error", "No se pudo eliminar.");
       }
     }
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6 space-y-4 md:space-y-6">
-      {/* ✅ Padding adaptativo */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-        {/* ✅ Stack en móviles */}
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">
-          {/* ✅ Tamaño adaptativo */}
-          Gestión de Usuarios
-        </h1>
+    // ✅ 1. Contenedor con ancho controlado igual que AdminPage
+    <div className="bg-white rounded-2xl shadow-sm p-4 space-y-4 w-full max-w-[90vw] sm:max-w-4/5 lg:max-w-3/4 mx-auto h-auto box-border">
+      {" "}
+      {/* ✅ 2. Header Responsivo (Stack en móvil, Row en escritorio) */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-100 pb-4">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <User className="h-6 w-6 text-gray-700" />
+            {isDeveloper ? "Gestión Global" : "Personal"}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            {isDeveloper
+              ? "Administra los usuarios de todos los restaurantes"
+              : "Gestiona el equipo de tu restaurante"}
+          </p>
+        </div>
+
+        {/* ✅ 3. Botón Full Width en móvil */}
         <Button
           onClick={() => {
             setSelectedUser(null);
             setOpen(true);
           }}
-          className="text-sm md:text-base w-full md:w-auto" // ✅ Ancho y tamaño adaptativo
+          className="bg-black text-white hover:bg-gray-800 w-full md:w-auto transition-all"
         >
-          + Agregar Usuario
+          + Nuevo Usuario
         </Button>
       </div>
+      {/* Mensajes de Error */}
       {errors.length > 0 && (
-        <div className="space-y-2">
-          {errors.map((error, i) => (
-            <div
-              key={i}
-              className="bg-red-500 text-white text-sm p-2 rounded-md"
-            >
-              {error}
-            </div>
+        <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-200">
+          {errors.map((e, i) => (
+            <div key={i}>{e}</div>
           ))}
         </div>
       )}
-      <div className="overflow-x-auto">
-        {/* ✅ Scroll horizontal */}
-        <table className="w-full border-collapse min-w-[100px]">
-          {/* ✅ Min width para scroll */}
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="px-4 md:px-6 py-3 text-left text-sm font-semibold text-gray-700">
-                {/* ✅ Padding adaptativo */}
-                Nombre
-              </th>
-              <th className="px-4 md:px-6 py-3 text-left text-sm font-semibold text-gray-700 hidden md:table-cell">
-                {/* ✅ Oculta en móviles */}
-                Email
-              </th>
-              <th className="px-4 md:px-6 py-3 text-left text-sm font-semibold text-gray-700 hidden sm:table-cell">
-                {/* ✅ Oculta en móviles pequeños */}
-                Rol
-              </th>
-              <th className="px-4 md:px-6 py-3 text-right text-sm font-semibold text-gray-700">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user, index) => (
-              <tr key={user.user_id || index} className="border-t">
-                <td className="px-4 md:px-6 py-4 text-sm md:text-base">
-                  {user.name}
-                </td>
-                {/* ✅ Tamaño adaptativo */}
-                <td className="px-4 md:px-6 py-4 text-gray-700 hidden md:table-cell text-sm md:text-base">
-                  {user.email}
-                </td>
-                {/* ✅ Oculta en móviles */}
-                <td className="px-4 md:px-6 py-4 text-gray-700 hidden sm:table-cell text-sm md:text-base">
-                  {/* ✅ Oculta en móviles pequeños */}
-                  {user.role_id === 1 ? "Admin" : "Empleado"}
-                </td>
-                <td className="px-4 md:px-6 py-4 text-right">
-                  <div className="flex justify-end gap-1 md:gap-2">
-                    {/* ✅ Gap adaptativo */}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleEdit(user)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(user.user_id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
-                </td>
+      {/* ✅ 4. Tabla Responsiva */}
+      <div className="border border-gray-200 rounded-xl overflow-hidden">
+        {/* 'overflow-x-auto' habilita el deslizamiento. 'w-full' asegura que use el espacio. */}
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-100 text-gray-700 font-semibold">
+              <tr>
+                {/* 'whitespace-nowrap' es la clave: impide que el texto se parta en dos líneas */}
+                <th className="px-6 py-3 whitespace-nowrap">Nombre</th>
+                <th className="hidden md:table-cell px-6 py-3 whitespace-nowrap">
+                  Email
+                </th>
+                <th className="px-6 py-3 whitespace-nowrap">Rol</th>
+
+                {isDeveloper && (
+                  <th className="px-6 py-3 whitespace-nowrap">Restaurante</th>
+                )}
+
+                <th className="px-6 py-3 text-right whitespace-nowrap">
+                  Acciones
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {Array.isArray(users) && users.length > 0 ? (
+                users.map((u) => (
+                  <tr
+                    key={u.user_id}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
+                    {/* Nombre + Email (solo móvil) */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="font-medium text-gray-900">{u.name}</div>
+
+                      {/* ✅ Aquí mostramos el email solo en pantallas pequeñas */}
+                      <div className="md:hidden text-xs text-gray-500 mt-1 flex items-center gap-1">
+                        <Mail className="w-3 h-3" /> {u.email}
+                      </div>
+                    </td>
+
+                    {/* Email (solo Desktop) */}
+                    <td className="hidden md:table-cell px-6 py-4 text-gray-600 whitespace-nowrap">
+                      {u.email}
+                    </td>
+
+                    {/* Rol */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
+                        ${
+                          u.role_id === 1
+                            ? "bg-purple-50 text-purple-700 border-purple-200"
+                            : "bg-blue-50 text-blue-700 border-blue-200"
+                        }`}
+                      >
+                        {u.role_id === 1 ? "Admin" : "Empleado"}
+                      </span>
+                    </td>
+
+                    {/* Restaurante (Developer) */}
+                    {isDeveloper && (
+                      <td className="px-6 py-4 text-gray-600 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-gray-400" />
+                          {getRestaurantName(u.restaurant_id)}
+                        </div>
+                      </td>
+                    )}
+
+                    {/* Acciones */}
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(u)}
+                          className="hover:bg-gray-100"
+                        >
+                          <Edit className="h-4 w-4 text-gray-600" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDelete(u.user_id)}
+                          className="hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={isDeveloper ? 5 : 4}
+                    className="px-6 py-8 text-center text-gray-500 bg-gray-50"
+                  >
+                    No hay usuarios registrados.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
       <UserModal
         open={open}
         onClose={() => {
           setOpen(false);
-          setSelectedUser(null);
-          getUsers(); // ✅ Refresca la lista
+          getUsers();
         }}
         user={selectedUser}
       />

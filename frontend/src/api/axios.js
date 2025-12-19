@@ -5,4 +5,15 @@ const instance = axios.create({
   withCredentials: true,
 });
 
+instance.interceptors.request.use((config) => {
+  const tenantId = localStorage.getItem("selectedRestaurantId");
+
+  if (tenantId && tenantId !== "null") {
+    // Aseguramos que sea string para el header
+    config.headers["x-tenant-id"] = tenantId.toString();
+  }
+
+  return config;
+});
+
 export default instance;

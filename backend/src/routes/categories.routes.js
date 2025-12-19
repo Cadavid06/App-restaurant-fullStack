@@ -11,15 +11,15 @@ import { authorizeRoles } from "../middlewares/authorizeRoles.js";
 const router = Router();
 
 // POST /api/category: Crea una nueva categoría.
-router.post("/category", authRequired, authorizeRoles(1), createCategory);
+router.post("/category", authRequired, authorizeRoles(1, 3), createCategory);
 
 // GET /api/category: Obtiene todas las categorías
-router.get("/category", authRequired, authorizeRoles(1, 2), getCategories);
+router.get("/category", authRequired, authorizeRoles(1, 2, 3), getCategories);
 // GET /api/category/:id Obtiene las categorías por ID
-router.get("/category/:id", authRequired, authorizeRoles(1, 2), getCategory);
+router.get("/category/:id", authRequired, authorizeRoles(1, 2, 3), getCategory);
 // PUT /api/category/:id Actualizar todas las categorías
-router.put("/category/:id", authRequired, authorizeRoles(1), updateCategory);
+router.put("/category/:id", authRequired, authorizeRoles(1, 3), updateCategory);
 // DELETE /api/category/:id Eliminar una categorías
-router.delete("/category/:id", authRequired, authorizeRoles(1), deleteCategory);
+router.delete("/category/:id", authRequired, authorizeRoles(1, 3), deleteCategory);
 
 export default router;

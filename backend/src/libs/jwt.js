@@ -3,8 +3,6 @@
  */
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-
-// Carga las variables de entorno para acceder a JWT_SECRET
 dotenv.config();
 
 /**
@@ -13,11 +11,15 @@ dotenv.config();
  */
 export function createdAccessToken(user) {
     return new Promise((resolve, reject) => {
-        // Genera el token con el ID y el Rol del usuario en el payload
         jwt.sign(
-            { id: user.user_id, role: user.role_id },
-            process.env.JWT_SECRET, // Clave secreta para firmar el token
-            { expiresIn: "24h" }, // El token expira en 1 hora
+            { 
+                id: user.user_id, 
+                role: user.role_id,
+                // ✅ AGREGADO: Guardamos el ID del restaurante en el token
+                restaurant_id: user.restaurant_id 
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "24h" },
             (err, token) => {
                 if (err) reject(err);
                 resolve(token);

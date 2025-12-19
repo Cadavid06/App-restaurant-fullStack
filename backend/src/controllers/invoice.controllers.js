@@ -4,7 +4,7 @@ import moment from "moment-timezone";
 export const createInvoice = async (req, res) => {
   const { payment_method } = req.body;
   const idOrder = req.params.id;
-  const { id: idEmployee, role } = req.user || {};
+  const { id: idEmployee, role, restaurant_id } = req.user || {}; // ✅ Extraer restaurant_id
 
   const client = await pool.connect();
 
@@ -20,25 +20,38 @@ export const createInvoice = async (req, res) => {
       await client.query("ROLLBACK");
       return res
         .status(403)
-        .json({ message: "Only employees or admins can create orders" });
+        .json({ message: "Only employees or admins can create invoices" });
     }
 
+    // ✅ Verificar que la orden pertenezca al restaurante del usuario
     const orderFound = await client.query(
-      `SELECT order_id, date_time FROM "order" 
-        WHERE order_id  = $1`,
+      `SELECT order_id, date_time, restaurant_id FROM "order" 
+        WHERE order_id = $1`,
       [idOrder]
     );
+
     if (orderFound.rows.length === 0) {
       await client.query("ROLLBACK");
       return res.status(404).json({ message: "Order not found" });
+    }
+
+    // ✅ Validar que la orden pertenezca al mismo restaurante (excepto Developer)
+    const orderRestaurantId = orderFound.rows[0].restaurant_id;
+    if (role !== 1 && orderRestaurantId !== restaurant_id) {
+      await client.query("ROLLBACK");
+      return res
+        .status(403)
+        .json({ message: "Order does not belong to your restaurant" });
     }
 
     const existsInvoice = await client.query(
       "SELECT invoice_id FROM invoice WHERE order_id = $1",
       [idOrder]
     );
-    if (existsInvoice.rows.length > 0)
-      return res.status(404).json({ message: "Invoice already exists" });
+    if (existsInvoice.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(409).json({ message: "Invoice already exists" });
+    }
 
     const orderDetail = await client.query(
       `SELECT amount, unit_price FROM order_detail WHERE order_id = $1`,
@@ -58,13 +71,21 @@ export const createInvoice = async (req, res) => {
 
     const dateInvoice = moment().tz("America/Bogota").toDate();
 
+    // ✅ Insertar factura con restaurant_id de la orden
     const newInvoice = await client.query(
-      `INSERT INTO invoice (order_id, date_time, total_payment, payment_method, employee_id) 
-            VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [idOrder, dateInvoice, total_payment, payment_method, idEmployee]
+      `INSERT INTO invoice (order_id, date_time, total_payment, payment_method, employee_id, restaurant_id) 
+            VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [
+        idOrder,
+        dateInvoice,
+        total_payment,
+        payment_method,
+        idEmployee,
+        orderRestaurantId,
+      ]
     );
 
-    // ✅ Actualiza el status de la orden a "Completado"
+    // Actualiza el status de la orden a "Completado"
     await client.query(`UPDATE "order" SET status = $1 WHERE order_id = $2`, [
       "Completado",
       idOrder,
@@ -86,8 +107,24 @@ export const createInvoice = async (req, res) => {
 };
 
 export const getInvoices = async (req, res) => {
+  const { role, restaurant_id } = req.user; // ✅ Extraer del usuario
+
   try {
-    const invoiceFound = await pool.query("SELECT * FROM invoice");
+    let invoiceFound;
+
+    // ✅ Developer puede ver todas las facturas
+    if (role === 3 && !restaurant_id) {
+      invoiceFound = await pool.query(
+        "SELECT * FROM invoice ORDER BY date_time DESC"
+      );
+    } else {
+      // ✅ Admin/Empleado solo ven facturas de su restaurante
+      invoiceFound = await pool.query(
+        "SELECT * FROM invoice WHERE restaurant_id = $1 ORDER BY date_time DESC",
+        [restaurant_id]
+      );
+    }
+
     if (invoiceFound.rows.length === 0)
       return res.status(200).json({ message: "No invoices found", data: [] });
 
@@ -103,18 +140,35 @@ export const getInvoices = async (req, res) => {
 
 export const getInvoice = async (req, res) => {
   const { id } = req.params;
+  const { role, restaurant_id } = req.user; // ✅ Extraer del usuario
 
   try {
-    // Query para obtener la factura con productos
-    const invoiceQuery = await pool.query(
-      `SELECT i.invoice_id, i.order_id, i.date_time, i.total_payment, i.payment_method, i.employee_id,
-              od.amount, od.unit_price, p.name
-       FROM invoice i
-       LEFT JOIN order_detail od ON i.order_id = od.order_id
-       LEFT JOIN product p ON od.product_id = p.product_id
-       WHERE i.order_id = $1`,
-      [id]
-    );
+    // ✅ Query para obtener la factura con productos
+    let invoiceQuery;
+
+    if (role === 3 && !restaurant_id) {
+      // Developer puede ver cualquier factura
+      invoiceQuery = await pool.query(
+        `SELECT i.invoice_id, i.order_id, i.date_time, i.total_payment, i.payment_method, i.employee_id, i.restaurant_id,
+                od.amount, od.unit_price, p.name
+         FROM invoice i
+         LEFT JOIN order_detail od ON i.order_id = od.order_id
+         LEFT JOIN product p ON od.product_id = p.product_id
+         WHERE i.order_id = $1`,
+        [id]
+      );
+    } else {
+      // Admin/Empleado solo pueden ver facturas de su restaurante
+      invoiceQuery = await pool.query(
+        `SELECT i.invoice_id, i.order_id, i.date_time, i.total_payment, i.payment_method, i.employee_id, i.restaurant_id,
+                od.amount, od.unit_price, p.name
+         FROM invoice i
+         LEFT JOIN order_detail od ON i.order_id = od.order_id
+         LEFT JOIN product p ON od.product_id = p.product_id
+         WHERE i.order_id = $1 AND i.restaurant_id = $2`,
+        [id, restaurant_id]
+      );
+    }
 
     if (invoiceQuery.rows.length === 0) {
       return res.status(404).json({ message: "Invoice not found" });
@@ -136,7 +190,7 @@ export const getInvoice = async (req, res) => {
 
     return res.json({
       success: true,
-      orders: [invoice], // Mantén la estructura para compatibilidad con el frontend
+      orders: [invoice],
     });
   } catch (error) {
     console.error("Error displaying invoices:", error);
@@ -146,14 +200,29 @@ export const getInvoice = async (req, res) => {
 
 export const deleteInvoice = async (req, res) => {
   const { id } = req.params;
+  const { role, restaurant_id } = req.user; // ✅ Extraer del usuario
 
   try {
-    const result = await pool.query(
-      "DELETE FROM invoice WHERE invoice_id = $1 RETURNING *",
-      [id]
-    );
+    let result;
+
+    if (role === 3 && !restaurant_id) {
+      // Developer puede eliminar cualquier factura
+      result = await pool.query(
+        "DELETE FROM invoice WHERE invoice_id = $1 RETURNING *",
+        [id]
+      );
+    } else {
+      // Admin/Empleado solo pueden eliminar facturas de su restaurante
+      result = await pool.query(
+        "DELETE FROM invoice WHERE invoice_id = $1 AND restaurant_id = $2 RETURNING *",
+        [id, restaurant_id]
+      );
+    }
+
     if (result.rowCount === 0)
-      return res.status(404).json({ message: "Invoice not found" });
+      return res
+        .status(404)
+        .json({ message: "Invoice not found or unauthorized" });
 
     return res.json({
       message: "Invoice deleted successfully",
