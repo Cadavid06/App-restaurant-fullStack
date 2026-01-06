@@ -1,8 +1,15 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { ClipboardList, Trash2, Minus, Plus, MenuSquareIcon } from "lucide-react";
+import {
+  ClipboardList,
+  Trash2,
+  Minus,
+  Plus,
+  MenuSquareIcon,
+} from "lucide-react";
 import { useCart } from "./CartContext";
 import { useOrderContext } from "../../context/OrderContext";
+import { showActionConfirm, showSuccess } from "../../utils/sweetAlert";
 
 export default function CartSheet() {
   const { items, removeItem, clearCart, total, itemCount, updateQuantity } =
@@ -18,7 +25,17 @@ export default function CartSheet() {
 
   const [isOpen, setIsOpen] = useState(false);
 
+  // 2. MODIFICAMOS EL ONSUBMIT
   const onSubmit = async (data) => {
+    // Preguntamos primero
+    const isConfirmed = await showActionConfirm(
+      "¿Confirmar Pedido?",
+      `Vas a enviar ${items.length} productos a cocina para la Mesa ${data.numberTable}.`,
+      "Sí, enviar a cocina"
+    );
+
+    if (!isConfirmed) return; // Si cancela, no hacemos nada
+
     const tableNumber = Number(data.numberTable);
     const products = items.map((item) => ({
       name: item.product.name,
@@ -29,6 +46,9 @@ export default function CartSheet() {
       tableNumber,
       products,
     });
+
+    // Mensaje de éxito visual
+    showSuccess("¡Pedido Enviado!", "La comanda ha sido enviada a cocina.");
 
     clearCart();
     reset();

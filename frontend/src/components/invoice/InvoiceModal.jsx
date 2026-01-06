@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
 import { useOrderContext } from "../../context/OrderContext";
 import { Button } from "../ui/button";
+import {
+  showSuccess,
+  showError,
+  showActionConfirm,
+  showToast,
+} from "../../utils/sweetAlert";
 
 function InvoiceModal({ isOpen, onClose, invoice }) {
   const { createInvoice } = useOrderContext();
@@ -16,18 +22,35 @@ function InvoiceModal({ isOpen, onClose, invoice }) {
   if (!isOpen || !invoice) return null;
 
   const handleCreate = async () => {
+    // Validación simple con Toast
     if (!formData.payment_method) {
-      alert("Selecciona un método de pago.");
+      showToast("Selecciona un método de pago", "warning");
       return;
     }
+
+    // 2. CONFIRMACIÓN ANTES DE PROCEDER
+    const isConfirmed = await showActionConfirm(
+      "¿Generar factura?",
+      "Una vez generada, quedará registrada y no se podrá eliminar.",
+      "Sí, generar factura"
+    );
+
+    if (!isConfirmed) return; // Si dice que no, paramos aquí.
+
     setLoading(true);
     try {
       await createInvoice(invoice.order_id, formData);
-      alert("Factura generada correctamente ✅");
+
+      // 3. ÉXITO
+      await showSuccess(
+        "¡Factura Generada!",
+        "La transacción se registró correctamente."
+      );
       onClose();
     } catch (error) {
       console.error("Error al generar factura:", error);
-      alert("Error al generar la factura ❌");
+      // 4. ERROR
+      showError("Error", "No se pudo generar la factura. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }

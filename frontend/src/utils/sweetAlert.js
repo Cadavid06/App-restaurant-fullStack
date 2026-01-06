@@ -60,3 +60,20 @@ export const showToast = (title, icon = "success") => {
     title: title
   });
 };
+
+// 5. Alerta de Confirmación Genérica (Para acciones importantes como Facturar o Pedir)
+export const showActionConfirm = async (title, text, confirmButtonText = "Sí, confirmar") => {
+  const result = await Swal.fire({
+    title: title,
+    text: text,
+    icon: "question", // Icono de interrogación
+    showCancelButton: true,
+    confirmButtonColor: "#000000", // Negro (tu branding)
+    cancelButtonColor: "#d33",     // Rojo para cancelar
+    confirmButtonText: confirmButtonText,
+    cancelButtonText: "Cancelar",
+    reverseButtons: true,
+  });
+
+  return result.isConfirmed; // Retorna true si aceptó, false si canceló
+};
