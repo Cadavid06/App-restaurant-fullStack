@@ -1,0 +1,21 @@
+# Node modules
+node_modules/
+
+# Environment files
+backend/.env
+frontend/.env
+
+# Ignore local env variants
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Project analysis & corrections (sensitive/internal docs)
+ANALISIS_ARQUITECTURA_SEGURIDAD.md
+CORRECCIONES_INMEDIATAS.md
