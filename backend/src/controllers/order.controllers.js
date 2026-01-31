@@ -287,12 +287,14 @@ export const updateOrder = async (req, res) => {
       }
     }
 
-    const idsProducts = data.products.map((p) => p.product_id);
+    const idsProducts = data.products.map((p) => Number(p.product_id)).filter(Boolean);
     if (idsProducts.length > 0) {
+      // Crear placeholders dinámicos de forma segura para evitar SQL injection
+      const placeholders = idsProducts.map((_, i) => `$${i + 2}`).join(',');
       await client.query(
         `DELETE FROM order_detail
-         WHERE order_id = $1 AND product_id NOT IN (${idsProducts.join(",")})`,
-        [id]
+         WHERE order_id = $1 AND product_id NOT IN (${placeholders})`,
+        [id, ...idsProducts]
       );
     }
 

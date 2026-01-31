@@ -39,8 +39,8 @@ export const register = async (req, res) => {
     // ✅ 3. Validar restaurant_id según el rol
     let finalRestaurantId = restaurant_id;
 
-    // Si NO es Developer, el restaurant_id es obligatorio
-    if (roleId !== 1) {
+    // Si NO es Developer (role_id 3), el restaurant_id es obligatorio
+    if (roleId !== 3) {
       if (!restaurant_id) {
         await client.query("ROLLBACK");
         return res.status(400).json({

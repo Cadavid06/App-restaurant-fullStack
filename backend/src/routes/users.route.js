@@ -12,10 +12,10 @@ const router = Router();
 
 router.get("/user", authRequired, authorizeRoles(1, 3), getUsers);
 
-router.get("/user/:id", authRequired, authorizeRoles(1, 3), getUser);
+router.get("/user/:id", validateId, authRequired, authorizeRoles(1, 3), getUser);
 
-router.put("/user/:id", authRequired, authorizeRoles(1, 3), updateUsers);
+router.put("/user/:id", validateId, authRequired, authorizeRoles(1, 3), updateUsers);
 
-router.delete("/user/:id", authRequired, authorizeRoles(1, 3), deleteUsers);
+router.delete("/user/:id", validateId, authRequired, authorizeRoles(1, 3), deleteUsers);
 
 export default router;

@@ -37,7 +37,7 @@ export const createInvoice = async (req, res) => {
 
     // ✅ Validar que la orden pertenezca al mismo restaurante (excepto Developer)
     const orderRestaurantId = orderFound.rows[0].restaurant_id;
-    if (role !== 1 && orderRestaurantId !== restaurant_id) {
+    if (role !== 3 && orderRestaurantId !== restaurant_id) {
       await client.query("ROLLBACK");
       return res
         .status(403)

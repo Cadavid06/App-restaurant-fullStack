@@ -35,61 +35,47 @@ export const RestaurantProvider = ({ children }) => {
     }
   }, [errors]);
 
-  // ✅ Cargar restaurantes automáticamente si es Developer
+  // ✅ Cargar restaurantes automáticamente si es Developer (un único efecto)
   useEffect(() => {
     if (user?.role === 3) {
       getRestaurants();
     }
-  }, [user]);
-
-  // ✅ Establecer restaurante actual basado en el usuario
-  // ✅ Cargar restaurantes automáticamente SOLO si es Developer (Rol 3)
-  useEffect(() => {
-    // ANTES: if (user?.role === 1)
-    if (user?.role === 3) {
-      getRestaurants();
-    }
-  }, [user]);
+  }, [user?.role]);
 
   // ✅ Establecer restaurante actual al cargar usuario
   useEffect(() => {
-    if (user) {
-      // 👑 CASO 1: DEVELOPER (Rol 3)
-      // La fuente de verdad es el localStorage (para sobrevivir al F5)
-      if (user.role === 3) {
-        console.log("[RestaurantContext] Developer detectado");
+    if (!user) {
+      setCurrentRestaurant(null);
+      return;
+    }
 
-        const savedId = localStorage.getItem("selectedRestaurantId");
-
-        if (savedId) {
-          console.log(
-            `[RestaurantContext] Restaurando sesión en restaurante ID: ${savedId}`
-          );
-          getRestaurant(savedId)
-            .then((data) => setCurrentRestaurant(data))
-            .catch((error) => {
-              console.warn(
-                "No se pudo recuperar el restaurante guardado, limpiando...",
-                error
-              );
-              localStorage.removeItem("selectedRestaurantId");
-              setCurrentRestaurant(null);
-            });
-        } else {
-          // Si no hay nada guardado, estamos en modo Global
-          setCurrentRestaurant(null);
-        }
-      }
-
-      // 🏢 CASO 2: ADMIN O EMPLEADO (Rol 1 o 2)
-      // La fuente de verdad es SIEMPRE la base de datos (user.restaurant_id)
-      else if (user.restaurant_id) {
-        getRestaurant(user.restaurant_id)
+    // 👑 DEVELOPER (Rol 3)
+    if (user.role === 3) {
+      const savedId = localStorage.getItem("selectedRestaurantId");
+      if (savedId) {
+        getRestaurant(savedId)
           .then((data) => setCurrentRestaurant(data))
-          .catch((err) => console.error(err));
+          .catch((error) => {
+            console.warn("No se pudo recuperar el restaurante guardado:", error);
+            localStorage.removeItem("selectedRestaurantId");
+            setCurrentRestaurant(null);
+          });
+      } else {
+        setCurrentRestaurant(null);
       }
     }
-  }, [user]);
+    // 🏢 ADMIN O EMPLEADO (Rol 1 o 2)
+    else if (user.restaurant_id) {
+      getRestaurant(user.restaurant_id)
+        .then((data) => setCurrentRestaurant(data))
+        .catch((err) => {
+          console.error("Error cargando restaurante del usuario:", err);
+          setCurrentRestaurant(null);
+        });
+    } else {
+      setCurrentRestaurant(null);
+    }
+  }, [user?.role, user?.restaurant_id]);
   
   const getRestaurants = async () => {
     try {
@@ -179,15 +165,19 @@ export const RestaurantProvider = ({ children }) => {
     localStorage.removeItem("selectedRestaurantId");
   };
 
-  // ✅ Recuperar selección de localStorage al recargar
+  // ✅ Recuperar selección de localStorage al recargar (solo Developer)
   useEffect(() => {
     const savedRestaurantId = localStorage.getItem("selectedRestaurantId");
-    if (savedRestaurantId && user?.role === 1) {
+    if (savedRestaurantId && user?.role === 3) {
       getRestaurant(savedRestaurantId)
         .then((data) => setCurrentRestaurant(data))
-        .catch(() => localStorage.removeItem("selectedRestaurantId"));
+        .catch((error) => {
+          console.warn("No se pudo recuperar el restaurante guardado:", error);
+          localStorage.removeItem("selectedRestaurantId");
+          setCurrentRestaurant(null);
+        });
     }
-  }, [user]);
+  }, [user?.role]);
 
   return (
     <RestaurantContext.Provider

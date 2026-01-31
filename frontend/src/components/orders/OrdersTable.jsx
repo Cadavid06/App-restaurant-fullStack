@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import InvoiceModal from "../invoice/InvoiceModal";
 import { useOrderContext } from "../../context/OrderContext";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 export function OrdersTable({ orders, onEdit, onDelete }) {
   const { getInvoice, getOrder } = useOrderContext();
@@ -20,12 +20,14 @@ export function OrdersTable({ orders, onEdit, onDelete }) {
   const ITEMS_PER_PAGE = 10;
 
   // 1. ✅ NUEVO: Ordenar los pedidos por fecha (del más reciente al más antiguo)
-  // Usamos [...orders] para crear una copia y no mutar el array original
-  const sortedOrders = [...orders].sort((a, b) => {
-    const dateA = new Date(a.date_time); // Asegúrate que 'date_time' sea el nombre correcto en tu BD
-    const dateB = new Date(b.date_time);
-    return dateB - dateA; // B - A = Orden Descendente (Nuevos primero)
-  });
+  // Usamos useMemo para evitar recalcular en cada render
+  const sortedOrders = useMemo(() => {
+    return [...orders].sort((a, b) => {
+      const dateA = new Date(a.date_time); // Asegúrate que 'date_time' sea el nombre correcto en tu BD
+      const dateB = new Date(b.date_time);
+      return dateB - dateA; // B - A = Orden Descendente (Nuevos primero)
+    });
+  }, [orders]);
 
   // 2. ✅ MODIFICADO: Usamos 'sortedOrders' en lugar de 'orders' para calcular páginas
   const totalPages = Math.ceil(sortedOrders.length / ITEMS_PER_PAGE);

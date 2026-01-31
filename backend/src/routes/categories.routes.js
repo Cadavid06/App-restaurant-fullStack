@@ -5,6 +5,7 @@
 
 import { Router } from "express";
 import { authRequired } from "../middlewares/validateToken.js";
+import { validateId } from "../middlewares/validateParams.js";
 import { createCategory, deleteCategory, getCategories, getCategory, updateCategory } from "../controllers/category.controllers.js";
 import { authorizeRoles } from "../middlewares/authorizeRoles.js";
 
@@ -16,10 +17,10 @@ router.post("/category", authRequired, authorizeRoles(1, 3), createCategory);
 // GET /api/category: Obtiene todas las categorías
 router.get("/category", authRequired, authorizeRoles(1, 2, 3), getCategories);
 // GET /api/category/:id Obtiene las categorías por ID
-router.get("/category/:id", authRequired, authorizeRoles(1, 2, 3), getCategory);
+router.get("/category/:id", validateId, authRequired, authorizeRoles(1, 2, 3), getCategory);
 // PUT /api/category/:id Actualizar todas las categorías
-router.put("/category/:id", authRequired, authorizeRoles(1, 3), updateCategory);
+router.put("/category/:id", validateId, authRequired, authorizeRoles(1, 3), updateCategory);
 // DELETE /api/category/:id Eliminar una categorías
-router.delete("/category/:id", authRequired, authorizeRoles(1, 3), deleteCategory);
+router.delete("/category/:id", validateId, authRequired, authorizeRoles(1, 3), deleteCategory);
 
 export default router;
