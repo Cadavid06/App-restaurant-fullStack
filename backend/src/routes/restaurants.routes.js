@@ -2,6 +2,8 @@ import { Router } from "express";
 import { authRequired } from "../middlewares/validateToken.js";
 import { authorizeRoles } from "../middlewares/authorizeRoles.js";
 import { validateId } from "../middlewares/validateParams.js";
+import { validateSchema } from "../middlewares/validateSchema.js";
+import { createRestaurantSchema, updateRestaurantSchema } from "../schemas/restaurant.schema.js";
 import {
   createRestaurant,
   getRestaurants,
@@ -19,9 +21,9 @@ router.use(authRequired);
 
 // 👑 RUTAS EXCLUSIVAS DE DEVELOPER (ROL 3)
 // Solo el Dev puede crear, listar todos, editar, desactivar o borrar
-router.post("/restaurants", authorizeRoles(3), createRestaurant);
+router.post("/restaurants", authorizeRoles(3), validateSchema(createRestaurantSchema), createRestaurant);
 router.get("/restaurants", authorizeRoles(3), getRestaurants);
-router.put("/restaurants/:id", validateId, authorizeRoles(3), updateRestaurant);
+router.put("/restaurants/:id", validateId, authorizeRoles(3), validateSchema(updateRestaurantSchema), updateRestaurant);
 router.patch("/restaurants/:id/deactivate", validateId, authorizeRoles(3), deactivateRestaurant);
 router.delete("/restaurants/:id", validateId, authorizeRoles(3), deleteRestaurant);
 

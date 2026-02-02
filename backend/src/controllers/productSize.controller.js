@@ -5,9 +5,7 @@ export const createSize = async (req, res) => {
   const { restaurant_id } = req.user; // ✅ Obtenido del middleware
 
   try {
-    if (!name || name.trim() === "") {
-      return res.status(400).json({ message: "Size name is required" });
-    }
+    // La validación de `name` (presencia/tipo) la realiza Zod (`createSizeSchema`).
 
     // ✅ Verificar que no exista en este restaurante
     const exists = await pool.query(

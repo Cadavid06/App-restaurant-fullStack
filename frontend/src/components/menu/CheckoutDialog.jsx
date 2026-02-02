@@ -15,8 +15,6 @@ export function CheckoutDialog({ open, onOpenChange }) {
   const { items, total, clearCart } = useCart();
 
   const handleConfirm = () => {
-    console.log("[v0] CheckoutDialog - Confirming order:", { items, total });
-
     // Usamos showSuccess
     showSuccess("¡Pedido Confirmado!", "La orden ha sido enviada a cocina.");
 

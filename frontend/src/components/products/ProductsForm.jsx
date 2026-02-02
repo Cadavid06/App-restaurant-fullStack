@@ -88,7 +88,6 @@ export function ProductFormDialog({
       price: Number(data.price),
     };
 
-    console.log("Payload to send:", payload);
     onSave(payload);
     onOpenChange(false);
   };

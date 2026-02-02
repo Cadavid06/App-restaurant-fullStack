@@ -9,8 +9,7 @@ export const createCategory = async (req, res) => {
   const { restaurant_id } = req.user; // ✅ Obtenido del middleware
 
   try {
-    if (!name || name.trim() === "")
-      return res.status(400).json({ message: "Category name is required" });
+    // La validación de `name` (presencia/tipo) la realiza Zod (`createCategorySchema`).
 
     // ✅ Verificar que no exista la categoría en ESTE restaurante
     const exists = await pool.query(
@@ -84,8 +83,7 @@ export const updateCategory = async (req, res) => {
   const { restaurant_id } = req.user; // ✅ Obtenido del middleware
 
   try {
-    if (!name || name.trim() === "")
-      return res.status(400).json({ message: "Category name is required" });
+    // La validación de `name` (presencia/tipo) la realiza Zod (`updateCategorySchema`).
 
     // ✅ Verificar que no exista otra categoría con el mismo nombre en este restaurante
     const exists = await pool.query(

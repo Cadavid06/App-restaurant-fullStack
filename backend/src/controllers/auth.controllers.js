@@ -19,10 +19,7 @@ export const register = async (req, res) => {
     await client.query("BEGIN");
 
     // 1. Validación de campos obligatorios
-    if (!name || !email || !password || !role) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ message: "All fields are required" });
-    }
+    // (Validadas por Zod en la ruta: `validateSchema(registerSchema)`)
 
     // 2. Verifica si el rol existe
     const roleFound = await client.query(
@@ -90,7 +87,7 @@ export const register = async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "none",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
     });
 
     await client.query("COMMIT");
@@ -189,8 +186,8 @@ export const login = async (req, res) => {
 export const logout = (req, res) => {
   res.clearCookie("token", {
     httpOnly: true,
-    secure: true,
-    sameSite: "none",
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   });
   return res.json({ message: "Logged out" });
 };

@@ -15,11 +15,7 @@ export const createRestaurant = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // Validaciones
-    if (!name || name.trim() === "") {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ message: "Restaurant name is required" });
-    }
+    // Validaciones sintácticas (nombre) las maneja Zod (`createRestaurantSchema`).
 
     // Verificar que no exista un restaurante con el mismo nombre
     const exists = await client.query(
@@ -122,10 +118,7 @@ export const updateRestaurant = async (req, res) => {
   const { name, address, phone, is_active } = req.body;
 
   try {
-    // Validaciones
-    if (!name || name.trim() === "") {
-      return res.status(400).json({ message: "Restaurant name is required" });
-    }
+    // Validaciones sintácticas (nombre) las maneja Zod (`updateRestaurantSchema`).
 
     // Verificar que no exista otro restaurante con el mismo nombre
     const exists = await pool.query(

@@ -21,10 +21,7 @@ export const createOrder = async (req, res) => {
         .json({ message: "Only employees or admins can create orders" });
     }
 
-    if (!tableNumber || !Array.isArray(products) || products.length === 0) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ message: "All fields are required" });
-    }
+    // (La estructura y tipos de `tableNumber` y `products` son validados por Zod `createOrderSchema`)
 
     // ✅ Validar que todos los productos pertenezcan al restaurante
     for (const item of products) {
@@ -41,17 +38,8 @@ export const createOrder = async (req, res) => {
 
       const productId = productFound.rows[0].product_id;
 
-      if (
-        typeof productId !== "number" ||
-        !Number.isInteger(item.amount) ||
-        item.amount <= 0
-      ) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({
-          message:
-            "Each product must have numeric productId and positive integer amount",
-        });
-      }
+      // `amount` y `name` ya fueron validados por Zod (types y positive ints)
+      // Seguimos verificando existencia del producto en BD y su precio.
     }
 
     // ✅ Crear orden con restaurant_id
@@ -219,17 +207,8 @@ export const updateOrder = async (req, res) => {
         .json({ message: "Order not found or unauthorized" });
     }
 
-    if (typeof data.tableNumber !== "number" || data.tableNumber <= 0) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ message: "Invalid field types" });
-    }
-
-    for (const item of data.products) {
-      if (typeof item.name !== "string" || item.amount <= 0) {
-        await client.query("ROLLBACK");
-        return res.status(400).json({ message: "Invalid field types" });
-      }
-    }
+    // La validación de `tableNumber` y `products` (tipos y constraints) la realiza Zod (`updateOrderSchema`).
+    // Aquí solo aplicamos validaciones de negocio (existencia, pertenencia al restaurante, etc.).
 
     // Actualizar orden
     const result = await client.query(

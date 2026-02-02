@@ -95,11 +95,7 @@ export const updateUsers = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // Validaciones básicas
-    if (typeof name !== "string" || typeof email !== "string") {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ message: "Invalid field types" });
-    }
+    // Validaciones de forma y tipo (manejado por Zod `updateUserSchema`).
 
     // ✅ Verificar permisos de búsqueda
     let userQuery;

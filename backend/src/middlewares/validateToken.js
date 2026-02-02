@@ -22,11 +22,12 @@ export const authRequired = async (req, res, next) => {
     // 👑 NUEVA LÓGICA DE ROLE 3 (DEVELOPER)
     if (dbUser.role_id === 3) {
       const headerTenant = req.headers["x-tenant-id"];
-      // Si el Developer nos dice a qué restaurante quiere "suplantar", le hacemos caso
+      // Si el Developer nos dice a qué restaurante quiere "suplantar", verificar que sea un entero válido
       if (
         headerTenant &&
         headerTenant !== "null" &&
-        headerTenant !== "undefined"
+        headerTenant !== "undefined" &&
+        /^\d+$/.test(String(headerTenant))
       ) {
         activeRestaurantId = parseInt(headerTenant, 10);
       }

@@ -28,7 +28,6 @@ function OrdersPage() {
 
   const handleSave = async (data) => {
     try {
-      console.log("[v0] Saving order:", data);
 
       if (data.id) {
         // Actualizar pedido existente
@@ -55,7 +54,6 @@ function OrdersPage() {
   };
 
   const handleEdit = (orderToEdit) => {
-    console.log("[v0] Editing order:", orderToEdit);
     setSelectedOrder(orderToEdit);
     setOpen(true);
   };

@@ -5,25 +5,8 @@ export const createProduct = async (req, res) => {
   const { restaurant_id } = req.user; // ✅ Obtenido del middleware
 
   try {
-    if (!name || !description || !price || !category) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    if (
-      typeof name !== "string" ||
-      typeof description !== "string" ||
-      typeof category !== "string"
-    ) {
-      return res.status(400).json({ message: "Invalid field types" });
-    }
-
-    if (isNaN(price) || price <= 0) {
-      return res
-        .status(400)
-        .json({ message: "The price must be a number greater than 0" });
-    }
-
-    // ✅ Buscar categoría SOLO dentro del restaurante actual
+    // La estructura y tipos de `name`, `description`, `price` y `category` la valida Zod (`createProductSchema`).
+    // Aquí solo comprobamos existencia de categoría/tamaño y reglas de negocio.
     const categoryFound = await pool.query(
       "SELECT category_id FROM category WHERE name = $1 AND (restaurant_id = $2 OR restaurant_id IS NULL)",
       [category.trim(), restaurant_id]
@@ -74,21 +57,35 @@ export const createProduct = async (req, res) => {
 };
 
 export const getProducts = async (req, res) => {
-  // 1. Desestructuración corregida
-  const { restaurant_id } = req.user;
+  const { restaurant_id, role } = req.user;
 
   try {
-    const products = await pool.query(
-      `
-      SELECT p.*, c.name AS category_name, s.name AS size_name
-      FROM product p
-      LEFT JOIN category c ON p.category_id = c.category_id
-      LEFT JOIN sizes s ON p.size_id = s.size_id
-      WHERE p.restaurant_id = $1
-      ORDER BY p.product_id ASC
-    `,
-      [restaurant_id]
-    );
+    let productsQuery;
+    let params = [];
+
+    // Si es Developer en modo global, puede ver todos los productos
+    if (role === 3 && !restaurant_id) {
+      productsQuery = `
+        SELECT p.*, c.name AS category_name, s.name AS size_name
+        FROM product p
+        LEFT JOIN category c ON p.category_id = c.category_id
+        LEFT JOIN sizes s ON p.size_id = s.size_id
+        ORDER BY p.product_id ASC
+      `;
+    } else {
+      // Admin/Empleado o Developer con restaurant seleccionado: ver productos de su restaurante y globales
+      productsQuery = `
+        SELECT p.*, c.name AS category_name, s.name AS size_name
+        FROM product p
+        LEFT JOIN category c ON p.category_id = c.category_id
+        LEFT JOIN sizes s ON p.size_id = s.size_id
+        WHERE p.restaurant_id = $1 OR p.restaurant_id IS NULL
+        ORDER BY p.product_id ASC
+      `;
+      params = [restaurant_id];
+    }
+
+    const products = await pool.query(productsQuery, params);
 
     return res.json(products.rows);
   } catch (error) {
@@ -122,9 +119,7 @@ export const updateProduct = async (req, res) => {
   const { restaurant_id } = req.user; // ✅ Obtenido del middleware
 
   try {
-    if (isNaN(data.price) || data.price <= 0) {
-      return res.status(400).json({ message: "Invalid price" });
-    }
+    // El precio y otros tipos ya fueron validados por Zod (`updateProductSchema`).
 
     // ✅ Verificar que el producto pertenezca al restaurante antes de actualizar
     const productCheck = await pool.query(

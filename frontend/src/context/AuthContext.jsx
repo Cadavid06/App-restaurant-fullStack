@@ -25,6 +25,66 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
+  const normalizeErrors = (data) => {
+    const fieldLabels = {
+      password: "contraseña",
+      email: "correo electrónico",
+      name: "nombre",
+      tableNumber: "número de mesa",
+      products: "productos",
+      product_id: "producto",
+      amount: "cantidad",
+      price: "precio",
+      category: "categoría",
+      payment_method: "método de pago",
+    };
+
+    const translateDetail = (d) => {
+      const path = d.path || "";
+      const parts = path.split(".");
+      const field = parts[parts.length - 1] || "";
+      const label = fieldLabels[field] || field || "campo";
+      const msg = (d.message || "").toString();
+      const m = msg.toLowerCase();
+
+      if (m.includes("required")) return `El ${label} es obligatorio`;
+      if (m.includes("invalid email") || m.includes("invalid value")) return `El ${label} no es válido`;
+      const atLeast = msg.match(/at least (\d+)/i);
+      if (atLeast) return `El ${label} debe tener al menos ${atLeast[1]} caracteres`;
+      if (/string must contain at least/i.test(msg)) {
+        const n = msg.match(/at least (\d+)/i)?.[1] || "";
+        return `El ${label} debe tener al menos ${n} caracteres`;
+      }
+      if (m.includes("expected number") || m.includes("must be a number") || m.includes("number")) return `El ${label} debe ser un número`;
+      if (m.includes("array must contain at least")) {
+        const n = msg.match(/at least (\d+)/i)?.[1];
+        return `El ${label} debe contener al menos ${n} elemento(s)`;
+      }
+      if (m.includes("positive") || m.includes("greater than")) return `El ${label} debe ser un número positivo`;
+
+      return `${label}: ${msg}`;
+    };
+
+    if (!data) return ["Error inesperado"];
+    if (data.details && Array.isArray(data.details)) return data.details.map(translateDetail);
+    if (Array.isArray(data)) return data;
+    if (typeof data === "string") return [data];
+    if (data.errors && Array.isArray(data.errors)) {
+      return data.errors.map((e) => {
+        if (typeof e === "string") {
+          const le = e.toLowerCase();
+          if (le.includes("password")) return "La contraseña es obligatoria";
+          if (le.includes("email")) return "El correo electrónico no es válido";
+          if (le.includes("required")) return "Falta un campo obligatorio";
+          return e;
+        }
+        return e.message || JSON.stringify(e);
+      });
+    }
+    if (data.message) return [data.message];
+    return [JSON.stringify(data)];
+  };
+
   useEffect(() => {
     if (errors.length > 0) {
       const timer = setTimeout(() => {
@@ -75,7 +135,7 @@ export const AuthProvider = ({ children }) => {
       navigateByRole(res.data.user);
     } catch (error) {
       console.error("Registration error:", error);
-      setErrors(error.response?.data || ["Unexpected error"]);
+      setErrors(normalizeErrors(error.response?.data));
     } finally {
       setLoading(false);
     }
@@ -92,7 +152,7 @@ export const AuthProvider = ({ children }) => {
       navigateByRole(res.data.user);
     } catch (error) {
       console.error("[AuthContext] Login error:", error);
-      setErrors(error.response?.data || ["Unexpected error"]);
+      setErrors(normalizeErrors(error.response?.data));
     } finally {
       setLoading(false);
     }
